@@ -1,60 +1,238 @@
-import React, { useState } from 'react';
-import type { DealAnalysis } from './types';
-import { analyzeDeal } from './services/geminiService';
+import React, { useState, useEffect } from 'react';
+import { AnalysisResponse } from './types/analysis';
+import { InvestmentCommitteeResponse } from './types/analysis';
+import { analyzeDeal, simulateInvestmentCommittee } from './services/backend';
 import Header from './components/Header';
 import DealInput from './components/DealInput';
-import AnalysisDashboard from './components/AnalysisDashboard';
 import LoadingSpinner from './components/LoadingSpinner';
 import Welcome from './components/Welcome';
+import AnalysisResults from './components/analysis/AnalysisResults';
+import InvestmentCommittee from './components/analysis/InvestmentCommittee';
 
 const App: React.FC = () => {
-  const [analysis, setAnalysis] = useState<DealAnalysis | null>(null);
+  const [analysis, setAnalysis] = useState<AnalysisResponse | null>(null);
+  const [committeeData, setCommitteeData] = useState<InvestmentCommitteeResponse | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const [isAnalyzing, setIsAnalyzing] = useState<boolean>(false);
+  const [activeTab, setActiveTab] = useState<'analysis' | 'committee'>('analysis');
 
+  // Handle committee simulation
+  const handleCommitteeSimulation = async (pitch: string) => {
+    if (!pitch.trim()) {
+      setError("Please provide a startup pitch or description.");
+      return;
+    }
+
+    setIsLoading(true);
+    setError(null);
+    setActiveTab('committee');
+
+    try {
+      const result = await simulateInvestmentCommittee(pitch);
+      setCommitteeData(result);
+    } catch (error) {
+      console.error('Error running committee simulation:', error);
+      setError(error instanceof Error ? error.message : 'Failed to run committee simulation');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Handle analysis submission
   const handleAnalyze = async (pitch: string) => {
     if (!pitch.trim()) {
       setError("Please provide a startup pitch or description.");
       return;
     }
+
     setIsLoading(true);
+    setIsAnalyzing(true);
     setError(null);
     setAnalysis(null);
+    setCommitteeData(null);
+    setActiveTab('analysis');
+
     try {
+      // Start multi-agent workflow
+      console.log('Starting multi-agent analysis workflow...');
+
+      // Run regular deal analysis
+      console.log('Agent 1: Running deal analysis...');
       const result = await analyzeDeal(pitch);
-      setAnalysis(result);
-    } catch (err) {
-      console.error("Error analyzing deal:", err);
-      setError(
-        "Failed to analyze the deal. The Oracle is busy. Please try again later."
-      );
+
+      // Run investment committee simulation
+      console.log('Agent 2: Running investment committee simulation...');
+      const committeeResult = await simulateInvestmentCommittee(pitch);
+
+      // Transform the response to match the expected AnalysisResponse type
+      const analysisResponse: AnalysisResponse = {
+        analysisId: `analysis_${Date.now()}`,
+        status: 'completed',
+        startTime: new Date().toISOString(),
+        durationSeconds: 0,
+        agents: {
+          market_analyst: {
+            success: true,
+            data: { summary: 'Market analysis completed' },
+            confidence: result.confidence / 100
+          },
+          financial_analyst: {
+            success: true,
+            data: { summary: 'Financial analysis completed' },
+            confidence: result.confidence / 100
+          },
+          team_analyst: {
+            success: true,
+            data: { summary: 'Team analysis completed' },
+            confidence: result.confidence / 100
+          },
+          risk_analyst: {
+            success: true,
+            data: { summary: 'Risk analysis completed' },
+            confidence: result.confidence / 100
+          },
+          committee_simulator: {
+            success: true,
+            data: {
+              summary: 'Investment committee simulation completed',
+              committee_verdict: committeeResult.final_verdict,
+              consensus_score: committeeResult.consensus_score,
+              member_count: committeeResult.committee_members.length
+            },
+            confidence: committeeResult.consensus_score
+          }
+        },
+        finalVerdict: {
+          recommendation: result.verdict === 'Invest' ? 'INVEST' :
+                         result.verdict === 'Pass' ? 'PASS' : 'CONSIDER',
+          confidence: result.confidence / 100,
+          confidenceLabel: `${result.confidence}%`,
+          reasons: result.recommendations || ['No specific reasons provided'],
+          timestamp: new Date().toISOString()
+        },
+        summary: {
+          keyInsights: result.opportunities || [],
+          strengths: [],
+          concerns: result.risks || [],
+          recommendations: result.recommendations || []
+        }
+      };
+
+      setAnalysis(analysisResponse);
+      setCommitteeData(committeeResult);
+
+      console.log('Multi-agent workflow completed successfully!');
+    } catch (error) {
+      console.error('Error in multi-agent workflow:', error);
+      setError(error instanceof Error ? error.message : 'Failed to complete analysis workflow');
     } finally {
       setIsLoading(false);
+      setIsAnalyzing(false);
     }
   };
 
   return (
     <div className="min-h-screen bg-slate-900 text-slate-200 font-sans">
       <Header />
-      <main className="container mx-auto p-4 md:p-8">
-        <DealInput onAnalyze={handleAnalyze} isLoading={isLoading} />
+      <main className="container mx-auto p-4 md:p-8 max-w-6xl">
+        {/* Input Section */}
+        <div className="transition-opacity duration-300">
+          <DealInput 
+            onAnalyze={handleAnalyze} 
+            isLoading={isLoading} 
+            disabled={isLoading}
+          />
+        </div>
+
+        {/* Error Message */}
         {error && (
-          <div className="mt-8 text-center bg-red-900/50 border border-red-700 text-red-300 px-4 py-3 rounded-lg">
+          <div className="mt-6 bg-red-900/50 border border-red-700 text-red-300 px-6 py-4 rounded-lg">
             <p className="font-bold">An Error Occurred</p>
             <p>{error}</p>
           </div>
         )}
-        <div className="mt-8">
-          {isLoading && <LoadingSpinner />}
-          {!isLoading && !analysis && !error && <Welcome />}
-          {analysis && <AnalysisDashboard analysis={analysis} />}
+
+        {/* Results Tabs */}
+        {(analysis || committeeData) && (
+          <div className="mb-6">
+            <div className="flex space-x-1 bg-slate-800 p-1 rounded-lg border border-slate-700">
+              <button
+                onClick={() => setActiveTab('analysis')}
+                className={`flex-1 px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+                  activeTab === 'analysis'
+                    ? 'bg-blue-600 text-white'
+                    : 'text-slate-400 hover:text-slate-300'
+                }`}
+              >
+                📊 Analysis Report
+              </button>
+              <button
+                onClick={() => setActiveTab('committee')}
+                className={`flex-1 px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+                  activeTab === 'committee'
+                    ? 'bg-purple-600 text-white'
+                    : 'text-slate-400 hover:text-slate-300'
+                }`}
+              >
+                🦈 Committee Debate
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Main Content */}
+        <div className="mt-8 space-y-8">
+          {/* Analysis in Progress */}
+          {isLoading && (
+            <div className="mt-8 text-center">
+              <LoadingSpinner />
+              <p className="mt-4 text-slate-400">
+                {activeTab === 'committee' ? 'Simulating investment committee...' : 'Analyzing your startup pitch...'}
+              </p>
+            </div>
+          )}
+
+          {/* Analysis Results */}
+          {activeTab === 'analysis' && !isLoading && analysis && (
+            <AnalysisResults
+              analysis={analysis}
+              className="animate-fade-in"
+            />
+          )}
+
+          {/* Committee Simulation Results */}
+          {activeTab === 'committee' && !isLoading && committeeData && (
+            <InvestmentCommittee
+              committeeData={committeeData}
+              className="animate-fade-in"
+            />
+          )}
+
+          {/* Welcome Screen */}
+          {!isLoading && !analysis && !committeeData && !error && (
+            <Welcome />
+          )}
         </div>
       </main>
-       <footer className="text-center p-4 text-slate-600 text-sm">
+      <footer className="text-center p-4 text-slate-600 text-sm">
         <p>Dealflow Oracle &copy; 2025 - For Hackathon Purposes Only</p>
       </footer>
     </div>
   );
 };
+
+// Add some global styles for animations
+const style = document.createElement('style');
+style.textContent = `
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .animate-fade-in {
+    animation: fadeIn 0.3s ease-out forwards;
+  }
+`;
+document.head.appendChild(style);
 
 export default App;

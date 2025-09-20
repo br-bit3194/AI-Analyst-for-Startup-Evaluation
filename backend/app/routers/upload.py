@@ -1,5 +1,5 @@
-from fastapi import APIRouter, File, UploadFile, HTTPException
-from app.services.storage import save_file_local
+from fastapi import APIRouter, File, UploadFile, HTTPException, BackgroundTasks
+from app.services.storage import save_file
 
 from app.services.parsers import parse_pdf, parse_docx, parse_pptx, parse_image, parse_txt
 import uuid, asyncio
@@ -35,30 +35,38 @@ async def process_file(document_id: str, path: str, ext: str):
         doc = await DocumentModel.get(document_id)
         if doc:
             doc.status = "failed"
-            doc.metadata = {"error": str(e)}
+            doc.metadata = {"error": str(e), **(doc.metadata or {})}
             await doc.save()
 
 @router.post("/", response_model=dict)
-async def upload_file(file: UploadFile = File(...), user_id: str | None = None):
+async def upload_file(file: UploadFile = File(...), user_id: str | None = None, background_tasks: BackgroundTasks = None):
     ext = _ext(file.filename)
     if ext not in ("pdf", "docx", "pptx", "ppt", "txt", "png", "jpg", "jpeg", "tiff"):
         raise HTTPException(status_code=400, detail="Unsupported file type.")
     file_bytes = await file.read()
     filename = f"{uuid.uuid4().hex}_{file.filename}"
-    path = save_file_local(file_bytes, filename)
+    storage_path, local_path = save_file(file_bytes, filename)
 
     # Insert document
     doc = DocumentModel(
         user_id=user_id,
         filename=file.filename,
         file_type=ext,
-        storage_path=path,
+        storage_path=storage_path,
         status="uploaded"
     )
+    # record local path in metadata for processing transparency
+    doc.metadata = {**(doc.metadata or {}), "local_path": local_path}
     await doc.insert()
 
-    # Process immediately (synchronous for simplicity)
-    await process_file(str(doc.id), path, ext)
+    # Mark as processing and run in background
+    doc.status = "processing"
+    await doc.save()
+    if background_tasks is not None:
+        background_tasks.add_task(process_file, str(doc.id), local_path, ext)
+    else:
+        # fallback synchronous if background not provided
+        await process_file(str(doc.id), local_path, ext)
 
     updated = await DocumentModel.get(doc.id)
     return {"id": str(updated.id), "status": updated.status}
