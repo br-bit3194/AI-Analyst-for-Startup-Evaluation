@@ -1,0 +1,6 @@
+Conversational Assistant + Smart Alerts
+•	Build chat interface (frontend).
+•	AI: conversational prompt template for due diligence Q&A.
+•	Backend: integrate multi-agent orchestration for answering complex queries.
+•	Alerts pipeline: ingest founder updates/news → sentiment analysis → trigger Firebase notifications.
+•	UI: “Alerts Panel” with event-based updates (CEO exit, competitor funding).
