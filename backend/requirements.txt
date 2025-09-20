@@ -1,0 +1,13 @@
+fastapi
+uvicorn[standard]
+beanie
+motor
+python-dotenv
+python-multipart
+aiofiles
+pdfplumber
+python-docx
+python-pptx
+pillow
+pytesseract
+pydantic-settings

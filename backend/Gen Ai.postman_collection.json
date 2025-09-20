@@ -1,0 +1,191 @@
+{
+	"info": {
+		"_postman_id": "935a37c7-b6e8-4b91-b5c5-6018e19a35b1",
+		"name": "Gen Ai",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "21810803"
+	},
+	"item": [
+		{
+			"name": "Upload File",
+			"request": {
+				"auth": {
+					"type": "noauth"
+				},
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "formdata",
+					"formdata": [
+						{
+							"key": "file",
+							"type": "file",
+							"src": "/C:/Users/Wasim Khan/Downloads/sample_debate_document.pdf"
+						}
+					]
+				},
+				"url": {
+					"raw": "http://127.0.0.1:8000/upload/",
+					"protocol": "http",
+					"host": [
+						"127",
+						"0",
+						"0",
+						"1"
+					],
+					"port": "8000",
+					"path": [
+						"upload",
+						""
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "List Documents",
+			"request": {
+				"auth": {
+					"type": "noauth"
+				},
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "http://127.0.0.1:8000/documents/",
+					"protocol": "http",
+					"host": [
+						"127",
+						"0",
+						"0",
+						"1"
+					],
+					"port": "8000",
+					"path": [
+						"documents",
+						""
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Get Document by ID",
+			"request": {
+				"auth": {
+					"type": "noauth"
+				},
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "http://127.0.0.1:8000/documents/68c6f7cc809c8d9a1c414213/",
+					"protocol": "http",
+					"host": [
+						"127",
+						"0",
+						"0",
+						"1"
+					],
+					"port": "8000",
+					"path": [
+						"documents",
+						"68c6f7cc809c8d9a1c414213",
+						""
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Start Debate Session",
+			"request": {
+				"auth": {
+					"type": "noauth"
+				},
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "http://127.0.0.1:8000/debate/start?topic=StartupX&document_id=68c82a6df750e8bc57a0d72c",
+					"protocol": "http",
+					"host": [
+						"127",
+						"0",
+						"0",
+						"1"
+					],
+					"port": "8000",
+					"path": [
+						"debate",
+						"start"
+					],
+					"query": [
+						{
+							"key": "topic",
+							"value": "StartupX"
+						},
+						{
+							"key": "document_id",
+							"value": "68c82a6df750e8bc57a0d72c"
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Run Next Debate Round",
+			"request": {
+				"method": "POST",
+				"header": [],
+				"url": {
+					"raw": "http://127.0.0.1:8000/debate/68c82a73f750e8bc57a0d72d/next",
+					"protocol": "http",
+					"host": [
+						"127",
+						"0",
+						"0",
+						"1"
+					],
+					"port": "8000",
+					"path": [
+						"debate",
+						"68c82a73f750e8bc57a0d72d",
+						"next"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Get Debate Transcript",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "http://127.0.0.1:8000/debate/68c82a73f750e8bc57a0d72d",
+					"protocol": "http",
+					"host": [
+						"127",
+						"0",
+						"0",
+						"1"
+					],
+					"port": "8000",
+					"path": [
+						"debate",
+						"68c82a73f750e8bc57a0d72d"
+					]
+				}
+			},
+			"response": []
+		}
+	]
+}
