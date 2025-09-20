@@ -1,20 +1,63 @@
+import asyncio
+from app.config import settings
+
+try:
+    import google.generativeai as genai
+except Exception:
+    genai = None
+
 async def call_llm(system_prompt: str, user_prompt: str, model: str = "gpt-like") -> str:
-    # Lightweight stub for local development.
-    # Replace this with real integration (OpenAI, Gemini, etc.)
-    return f"[LLM stub] Role: {system_prompt} -- Input: {user_prompt[:300]}"
+    """
+    Unified LLM call. If LLM_PROVIDER=gemini and GEMINI_API_KEY is set, use Gemini.
+    Otherwise return a lightweight stub for local development.
+    """
+    if settings.llm_provider.lower() == "gemini" and settings.gemini_api_key and genai is not None:
+        genai.configure(api_key=settings.gemini_api_key)
+        model_name = model or "gemini-1.5-flash"
+        sys_prefix = system_prompt or ""
 
+        def _invoke():
+            m = genai.GenerativeModel(model_name)
+            # Concatenate system prompt and user prompt into a single input
+            prompt = f"System: {sys_prefix}\n\n{user_prompt}"
+            resp = m.generate_content(prompt)
+            return resp.text if hasattr(resp, "text") else str(resp)
 
-# from openai import AsyncOpenAI
-# from app.config import settings
+        try:
+            response = await asyncio.to_thread(_invoke)
+            print(f"DEBUG: Gemini API response: {response[:500]}...")  # Debug logging
+            return response
+        except Exception as e:
+            print(f"DEBUG: Gemini API error: {e}")  # Debug logging
+            return f"[LLM error: {e}]"
 
-# client = AsyncOpenAI(api_key=settings.openai_api_key)
+    # Fallback stub - return a properly formatted JSON response
+    print("DEBUG: Using fallback response (Gemini API not configured)")  # Debug logging
 
-# async def call_llm(system_prompt: str, user_prompt: str, model: str = "gpt-4o-mini") -> str:
-#     resp = await client.chat.completions.create(
-#         model=model,
-#         messages=[
-#             {"role": "system", "content": system_prompt},
-#             {"role": "user", "content": user_prompt},
-#         ]
-#     )
-#     return resp.choices[0].message.content
+    # Fallback stub - return a properly formatted JSON response
+    fallback_response = {
+        "verdict": "CONSIDER",
+        "confidence": 75.0,
+        "key_metrics": {
+            "market_size": "Not evaluated in fallback mode",
+            "revenue": "Not evaluated in fallback mode",
+            "growth_rate": "Not evaluated in fallback mode",
+            "team_strength": "Not evaluated in fallback mode"
+        },
+        "risks": [
+            "API key not configured - using fallback mode",
+            "Analysis is not based on actual AI evaluation"
+        ],
+        "opportunities": [
+            "Enable Gemini API for comprehensive analysis",
+            "Get real investment recommendations"
+        ],
+        "recommendations": [
+            "Configure GEMINI_API_KEY in .env file",
+            "Set LLM_PROVIDER=gemini",
+            "Restart the backend server"
+        ]
+    }
+    
+    import json
+    return json.dumps(fallback_response)

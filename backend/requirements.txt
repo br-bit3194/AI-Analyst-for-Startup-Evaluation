@@ -11,3 +11,7 @@ python-pptx
 pillow
 pytesseract
 pydantic-settings
+google-cloud-storage
+google-cloud-vision
+google-generativeai
+httpx
