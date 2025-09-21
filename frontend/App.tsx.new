@@ -11,6 +11,7 @@ import AnalysisResults from './components/analysis/AnalysisResults';
 import InvestmentCommittee from './components/analysis/InvestmentCommittee';
 import FinancePage from './pages/finance';
 
+// Navigation Component
 const Navigation: React.FC = () => {
   const location = useLocation();
   
@@ -37,6 +38,7 @@ const Navigation: React.FC = () => {
   );
 };
 
+// DealAnalysis Component
 const DealAnalysis: React.FC = () => {
   const [analysis, setAnalysis] = useState<AnalysisResponse | null>(null);
   const [committeeData, setCommitteeData] = useState<InvestmentCommitteeResponse | null>(null);
@@ -44,6 +46,7 @@ const DealAnalysis: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState<boolean>(false);
   const [activeTab, setActiveTab] = useState<'analysis' | 'committee'>('analysis');
+  const navigate = useNavigate();
 
   // Handle committee simulation
   const handleCommitteeSimulation = async (pitch: string) => {
@@ -149,7 +152,6 @@ const DealAnalysis: React.FC = () => {
 
       setAnalysis(analysisResponse);
       setCommitteeData(committeeResult);
-
       console.log('Multi-agent workflow completed successfully!');
     } catch (error) {
       console.error('Error in multi-agent workflow:', error);
@@ -158,14 +160,6 @@ const DealAnalysis: React.FC = () => {
       setIsLoading(false);
       setIsAnalyzing(false);
     }
-  };
-
-  // Use navigate for programmatic navigation
-  const navigate = useNavigate();
-  
-  // Handle navigation to finance dashboard
-  const handleNavigateToFinance = () => {
-    navigate('/finance');
   };
 
   return (
@@ -258,6 +252,7 @@ const DealAnalysis: React.FC = () => {
   );
 };
 
+// Main App Component
 const App: React.FC = () => {
   return (
     <Router>

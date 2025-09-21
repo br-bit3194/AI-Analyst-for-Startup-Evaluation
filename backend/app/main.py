@@ -8,7 +8,7 @@ from typing import Callable, Awaitable
 import traceback
 
 from app.db import init_db
-from app.routers import upload, documents, debate, seed, finance, analysis, deal_analysis
+from app.routers import upload, documents, debate, seed, finance, analysis, deal_analysis, verdict
 from app.logging_config import setup_logger, get_agent_logger
 
 # Initialize root logger
@@ -25,6 +25,7 @@ api_router.include_router(seed.router)
 api_router.include_router(finance.router)
 api_router.include_router(analysis.router)
 api_router.include_router(deal_analysis.router)
+api_router.include_router(verdict.router)
 
 app = FastAPI(title="Startup AI Backend")
 
