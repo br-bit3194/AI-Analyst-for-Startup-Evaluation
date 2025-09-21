@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { X, Menu, BarChart3, Home } from 'lucide-react';
+import { X, Menu, BarChart3, Home, FileText } from 'lucide-react';
 
 const MobileSidebar = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -8,15 +8,15 @@ const MobileSidebar = () => {
   
   const navItems = [
     { 
-      name: 'Home', 
+      name: 'Dashboard', 
       path: '/', 
       icon: <Home className="h-5 w-5" /> 
     },
     { 
-      name: 'Deal Analysis', 
-      path: '/deal-analysis', 
-      icon: <BarChart3 className="h-5 w-5" /> 
-    },
+      name: 'Analysis History', 
+      path: '/analysis/history', 
+      icon: <FileText className="h-5 w-5" /> 
+    }
   ];
 
   // Close sidebar when route changes

@@ -39,46 +39,11 @@ const Sidebar: React.FC<SidebarProps> = ({ children }) => {
       tooltip: 'Overview of your investments'
     },
     { 
-      name: 'Deal Analysis', 
-      path: '/analysis', 
-      icon: <LineChartOutlined />,
-      active: location.pathname.startsWith('/analysis'),
-      tooltip: 'Analyze potential investments'
-    },
-    { 
-      name: 'Investment Committee', 
-      path: '/committee', 
-      icon: <TeamOutlined />,
-      active: location.pathname.startsWith('/committee'),
-      tooltip: 'Simulate committee decisions'
-    },
-    { 
-      name: 'Portfolio', 
-      path: '/portfolio', 
-      icon: <DollarOutlined />,
-      active: location.pathname.startsWith('/portfolio'),
-      tooltip: 'View your investment portfolio'
-    },
-    { 
-      name: 'Reports', 
-      path: '/reports', 
+      name: 'Analysis History', 
+      path: '/analysis/history', 
       icon: <FileTextOutlined />,
-      active: location.pathname.startsWith('/reports'),
-      tooltip: 'Generate and view reports'
-    },
-    { 
-      name: 'Market Insights', 
-      path: '/insights', 
-      icon: <BulbOutlined />,
-      active: location.pathname.startsWith('/insights'),
-      tooltip: 'Market trends and insights'
-    },
-    { 
-      name: 'Alerts', 
-      path: '/alerts', 
-      icon: <NotificationOutlined />,
-      active: location.pathname.startsWith('/alerts'),
-      tooltip: 'View your alerts'
+      active: location.pathname.startsWith('/analysis/history'),
+      tooltip: 'View past analyses'
     }
   ];
   

@@ -114,94 +114,73 @@ const DealAnalysis: React.FC = () => {
   };
 
   // Handle analysis submission
-  const handleAnalyze = async (pitch: string) => {
-    if (!pitch.trim()) {
-      setError("Please provide a startup pitch or description.");
-      return;
-    }
-
+  const handleAnalyze = async (result: AnalysisResponse) => {
     setIsLoading(true);
-    setIsAnalyzing(true);
     setError(null);
-    setAnalysis(null);
-    setCommitteeData(null);
     setActiveTab('analysis');
 
     try {
-      // Start multi-agent workflow
-      console.log('Starting multi-agent analysis workflow...');
-
-      // Run regular deal analysis
-      console.log('Agent 1: Running deal analysis...');
-      const result = await analyzeDeal(pitch);
-
-      // Run investment committee simulation
-      console.log('Agent 2: Running investment committee simulation...');
-      const committeeResult = await simulateInvestmentCommittee(pitch);
-
-      // Transform the response to match the expected AnalysisResponse type
-      const analysisResponse: AnalysisResponse = {
-        analysisId: `analysis_${Date.now()}`,
-        status: 'completed',
-        startTime: new Date().toISOString(),
-        durationSeconds: 0,
-        agents: {
-          market_analyst: {
-            success: true,
-            data: { summary: 'Market analysis completed' },
-            confidence: result.confidence / 100
+      // If the result is already completed, just set it
+      if (result.status === 'completed') {
+        console.log('Analysis completed:', result);
+        setAnalysis({
+          ...result,
+          // Ensure all required fields are present
+          combined_analysis: result.combined_analysis || {
+            summary: result.result?.summary || 'No summary available',
+            key_insights: result.result?.key_insights || [],
+            recommendations: result.result?.recommendations || [],
+            has_website_data: !!result.website_analysis
           },
-          financial_analyst: {
-            success: true,
-            data: { summary: 'Financial analysis completed' },
-            confidence: result.confidence / 100
-          },
-          team_analyst: {
-            success: true,
-            data: { summary: 'Team analysis completed' },
-            confidence: result.confidence / 100
-          },
-          risk_analyst: {
-            success: true,
-            data: { summary: 'Risk analysis completed' },
-            confidence: result.confidence / 100
-          },
-          committee_simulator: {
-            success: true,
-            data: {
-              summary: 'Investment committee simulation completed',
-              committee_verdict: committeeResult.final_verdict,
-              consensus_score: committeeResult.consensus_score,
-              member_count: committeeResult.committee_members.length
-            },
-            confidence: committeeResult.consensus_score
-          }
+          // Add any missing fields with default values
+          recommendations: result.recommendations || [result.result?.recommendation || 'No recommendations available']
+        });
+        return;
+      }
+      
+      // If it's in progress, show loading state
+      if (result.status === 'processing') {
+        console.log('Analysis in progress...');
+        // Keep the current analysis or set the initial processing state
+        setAnalysis(prev => ({
+          ...(prev || {}),
+          ...result,
+          status: 'processing',
+          message: result.message || 'Analysis in progress...'
+        }));
+        return;
+      }
+      
+      // If there's an error, show it
+      if (result.status === 'error') {
+        console.error('Analysis error:', result.message);
+        setError(result.message || 'Analysis failed');
+        setAnalysis({
+          ...(result as any),
+          status: 'error',
+          message: result.message || 'Analysis failed'
+        });
+        return;
+      }
+      
+      // Default case - just set the analysis with proper defaults
+      console.log('Setting analysis result:', result);
+      setAnalysis({
+        ...result,
+        status: result.status || 'completed',
+        combined_analysis: result.combined_analysis || {
+          summary: result.result?.summary || 'No summary available',
+          key_insights: result.result?.key_insights || [],
+          recommendations: result.result?.recommendations || [],
+          has_website_data: !!result.website_analysis
         },
-        finalVerdict: {
-          recommendation: result.verdict === 'Invest' ? 'INVEST' :
-                         result.verdict === 'Pass' ? 'PASS' : 'CONSIDER',
-          confidence: result.confidence / 100,
-          confidenceLabel: `${result.confidence}%`,
-          reasons: result.recommendations || ['No specific reasons provided'],
-          timestamp: new Date().toISOString()
-        },
-        summary: {
-          keyInsights: result.opportunities || [],
-          strengths: [],
-          concerns: result.risks || [],
-          recommendations: result.recommendations || []
-        }
-      };
-
-      setAnalysis(analysisResponse);
-      setCommitteeData(committeeResult);
-      console.log('Multi-agent workflow completed successfully!');
+        recommendations: result.recommendations || [result.result?.recommendation || 'No recommendations available']
+      });
     } catch (error) {
-      console.error('Error in multi-agent workflow:', error);
-      setError(error instanceof Error ? error.message : 'Failed to complete analysis workflow');
+      console.error('Error analyzing deal:', error);
+      setError(error instanceof Error ? error.message : 'Failed to analyze deal');
     } finally {
       setIsLoading(false);
-      setIsAnalyzing(false);
     }
   };
 
@@ -220,6 +199,7 @@ const DealAnalysis: React.FC = () => {
           onAnalyze={handleAnalyze} 
           isLoading={isLoading} 
           disabled={isLoading}
+          setIsLoading={setIsLoading}
         />
       </div>
 
@@ -243,7 +223,7 @@ const DealAnalysis: React.FC = () => {
       )}
 
       {/* Results Tabs */}
-      {(analysis || committeeData) && (
+      {(analysis || committeeData || isLoading) && (
         <div className="border-b border-gray-200">
           <nav className="-mb-px flex space-x-8" aria-label="Tabs">
             <button
@@ -306,6 +286,9 @@ const DealAnalysis: React.FC = () => {
   );
 };
 
+// Import the AnalysisHistory component
+import AnalysisHistory from './pages/AnalysisHistory';
+
 // Main App Component
 const App: React.FC = () => {
   return (
@@ -314,6 +297,7 @@ const App: React.FC = () => {
         {/* Routes with Sidebar */}
         <Route element={<DashboardLayout />}>
           <Route path="/" element={<DealAnalysis />} />
+          <Route path="/analysis/history" element={<AnalysisHistory />} />
         </Route>
         
         {/* Routes without Sidebar */}

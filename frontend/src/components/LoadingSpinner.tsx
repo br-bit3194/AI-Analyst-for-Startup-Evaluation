@@ -88,7 +88,7 @@ const LoadingSpinner: React.FC<{ isCommittee?: boolean }> = ({ isCommittee = fal
                         <h3 className="text-xl font-semibold text-gray-900">
                             {isCommittee 
                                 ? 'Simulating Investment Committee Discussion' 
-                                : 'Analyzing Your Startup Pitch'}
+                                : 'Analyzing Your Amazing Startup Idea'}
                         </h3>
                         <p className="text-indigo-700 font-medium transition-opacity duration-500">
                             {message}

@@ -1,18 +1,30 @@
 import React from 'react';
-import { Card, Progress, Tag, Typography } from 'antd';
-import { CheckCircleFilled, ExclamationCircleFilled, StopFilled } from '@ant-design/icons';
+import { Card, Progress, Tag, Typography, Button, Space } from 'antd';
+import { 
+  CheckCircleFilled, 
+  ExclamationCircleFilled, 
+  StopFilled,
+  ArrowRightOutlined
+} from '@ant-design/icons';
+import { useNavigation } from '@/hooks/useNavigation';
 
-const { Title, Paragraph } = Typography;
+const { Title, Paragraph, Text } = Typography;
 
 interface VerdictProps {
   verdict?: {
-    recommendation: 'INVEST' | 'CONSIDER' | 'PASS';
+    recommendation: 'INVEST' | 'CONSIDER' | 'PASS' | 'STRONG_INVEST' | 'HIGH_RISK';
     confidence: number;
     summary: string;
     rationale: string;
-    next_steps?: string[];
+    committee_analysis?: {
+      final_verdict: string;
+      consensus_score: number;
+      key_debate_points?: string[];
+    };
   };
   loading?: boolean;
+  analysisId?: string;
+  showViewReport?: boolean;
 }
 
 const mockVerdicts = {
@@ -30,36 +42,71 @@ const mockVerdicts = {
   }
 };
 
-const VerdictCard: React.FC<VerdictProps> = ({ verdict, loading = false }) => {
+const VerdictCard: React.FC<VerdictProps> = ({ 
+  verdict, 
+  loading = false, 
+  analysisId,
+  showViewReport = true
+}) => {
+  const { navigate } = useNavigation();
+  
+  const handleViewReport = async () => {
+    if (analysisId) {
+      await navigate(`/analysis/${analysisId}`);
+    }
+  };
+
   const getVerdictConfig = () => {
-    switch (verdict?.recommendation) {
+    const rec = verdict?.recommendation || verdict?.committee_analysis?.final_verdict;
+    
+    switch (rec) {
+      case 'STRONG_INVEST':
+        return {
+          color: '#52c41a',
+          icon: <CheckCircleFilled style={{ color: '#52c41a' }} />,
+          label: 'Strong Invest',
+          description: 'Exceptional potential - Highly recommended for investment',
+          bgColor: '#f6ffed'
+        };
       case 'INVEST':
         return {
           color: '#52c41a',
           icon: <CheckCircleFilled style={{ color: '#52c41a' }} />,
           label: 'Invest',
-          description: 'Strong potential - Recommended for investment'
+          description: 'Strong potential - Recommended for investment',
+          bgColor: '#f6ffed'
         };
       case 'CONSIDER':
         return {
           color: '#faad14',
           icon: <ExclamationCircleFilled style={{ color: '#faad14' }} />,
           label: 'Consider',
-          description: 'Potential with some concerns - Further review needed'
+          description: 'Potential with some concerns - Further review needed',
+          bgColor: '#fffbe6'
+        };
+      case 'HIGH_RISK':
+        return {
+          color: '#fa8c16',
+          icon: <ExclamationCircleFilled style={{ color: '#fa8c16' }} />,
+          label: 'High Risk',
+          description: 'High potential but with significant risks',
+          bgColor: '#fff7e6'
         };
       case 'PASS':
         return {
           color: '#ff4d4f',
           icon: <StopFilled style={{ color: '#ff4d4f' }} />,
           label: 'Pass',
-          description: 'Significant concerns - Not recommended'
+          description: 'Significant concerns - Not recommended',
+          bgColor: '#fff1f0'
         };
       default:
         return {
           color: '#8c8c8c',
           icon: null,
           label: 'Pending',
-          description: 'Analysis in progress'
+          description: 'Analysis in progress',
+          bgColor: '#f5f5f5'
         };
     }
   };
@@ -69,13 +116,31 @@ const VerdictCard: React.FC<VerdictProps> = ({ verdict, loading = false }) => {
   return (
     <Card 
       title={
-        <div className="flex items-center">
-          <span className="mr-2">Investment Verdict</span>
-          {verdictConfig.icon}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center">
+            <span className="mr-2">Investment Verdict</span>
+            {verdictConfig.icon}
+          </div>
+          {showViewReport && analysisId && (
+            <Button 
+              type="link" 
+              icon={<ArrowRightOutlined />}
+              onClick={handleViewReport}
+            >
+              View Full Report
+            </Button>
+          )}
         </div>
       }
       className="h-full"
       loading={loading}
+      bodyStyle={{ 
+        backgroundColor: verdictConfig.bgColor || 'transparent',
+        borderRadius: '8px',
+        height: '100%',
+        display: 'flex',
+        flexDirection: 'column'
+      }}
     >
       {verdict ? (
         <div className="space-y-4">
@@ -113,11 +178,38 @@ const VerdictCard: React.FC<VerdictProps> = ({ verdict, loading = false }) => {
           </div>
 
           <div className="mt-6">
-            <Title level={5} style={{ marginBottom: 8 }}>Summary</Title>
-            <Paragraph>
-              {verdict.summary}
-            </Paragraph>
+            <Title level={5} className="mb-2">Summary</Title>
+            <Paragraph>{verdict.summary}</Paragraph>
           </div>
+
+          {verdict.committee_analysis && (
+            <div className="mt-4">
+              <div className="flex items-center justify-between">
+                <Title level={5} className="mb-2">Committee Consensus</Title>
+                <Tag color={verdictConfig.color}>
+                  {verdict.committee_analysis.final_verdict.replace('_', ' ')}
+                </Tag>
+              </div>
+              <div className="mt-2">
+                <Text type="secondary">
+                  Consensus Score: {Math.round((verdict.committee_analysis.consensus_score || 0) * 100)}%
+                </Text>
+              </div>
+            </div>
+          )}
+
+          {verdict.committee_analysis?.key_debate_points && (
+            <div className="mt-6">
+              <Title level={5} className="mb-2">Key Debate Points</Title>
+              <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+                {verdict.committee_analysis.key_debate_points.map((point, index) => (
+                  <Card key={index} size="small">
+                    <Text>{point}</Text>
+                  </Card>
+                ))}
+              </Space>
+            </div>
+          )}
 
           <div className="mt-4">
             <Title level={5} style={{ marginBottom: 12 }}>Rationale</Title>
@@ -125,25 +217,6 @@ const VerdictCard: React.FC<VerdictProps> = ({ verdict, loading = false }) => {
               {verdict.rationale}
             </Paragraph>
           </div>
-
-          {verdict.next_steps && verdict.next_steps.length > 0 && (
-            <div className="mt-6">
-              <Title level={5} style={{ marginBottom: 12 }}>Next Steps</Title>
-              <div className="space-y-3">
-                {verdict.next_steps.map((step, index) => (
-                  <div 
-                    key={index} 
-                    className="flex items-start p-3 bg-gray-50 rounded-lg border border-gray-100"
-                  >
-                    <div className="flex-shrink-0 w-6 h-6 rounded-full bg-blue-100 flex items-center justify-center mr-3 mt-0.5">
-                      <span className="text-blue-600 font-medium text-sm">{index + 1}</span>
-                    </div>
-                    <p className="text-gray-800 m-0">{step}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
         </div>
       ) : (
         <div className="text-center text-gray-400">

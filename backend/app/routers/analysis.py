@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, BackgroundTasks, Request
+from fastapi import APIRouter, HTTPException, BackgroundTasks, Request, Depends, status, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel
 from typing import Optional, Dict, Any, List
 import json
@@ -9,8 +9,15 @@ from datetime import datetime
 
 from app.services.committee_coordinator import CommitteeCoordinator
 from app.utils.agent_logger import AgentLogger
+from app.services.analysis_service import AnalysisService
+from app.middleware.auth_middleware import get_current_user
+from app.services.websocket_manager import websocket_manager
+from typing import Optional
 
+# Initialize router
 router = APIRouter(prefix="/analysis", tags=["analysis"])
+
+# Initialize committee
 committee = CommitteeCoordinator()
 
 # Initialize logger for the analysis router
@@ -20,6 +27,7 @@ router_logger = AgentLogger("analysis_router")
 analysis_results = {}
 analysis_callbacks = {}
 
+# Models
 class AnalysisRequest(BaseModel):
     pitch: str
     callback_url: Optional[str] = None  # For webhook notifications
@@ -29,6 +37,34 @@ class AnalysisResponse(BaseModel):
     status: str
     result: Optional[Dict[str, Any]] = None
     message: Optional[str] = None
+
+# WebSocket endpoint
+@router.websocket("/ws/status/{analysis_id}")
+async def websocket_endpoint(websocket: WebSocket, analysis_id: str):
+    """WebSocket endpoint for real-time progress updates"""
+    await websocket_manager.connect(analysis_id, websocket)
+    try:
+        while True:
+            # Keep connection alive
+            await asyncio.sleep(10)
+            await websocket.receive_text()
+    except WebSocketDisconnect:
+        websocket_manager.disconnect(analysis_id, websocket)
+
+@router.post("", 
+            response_model=AnalysisResponse,
+            status_code=status.HTTP_202_ACCEPTED,
+            summary="Start a new analysis",
+            response_description="Analysis started successfully")
+async def start_analysis(
+    request: AnalysisRequest,
+    background_tasks: BackgroundTasks
+):
+    """
+    Start a new analysis of a startup pitch (alias for /evaluate endpoint).
+    Returns immediately with an analysis ID that can be used to check the status.
+    """
+    return await evaluate_pitch(request, background_tasks)
 
 async def run_analysis(analysis_id: str, pitch: str):
     """
@@ -40,6 +76,11 @@ async def run_analysis(analysis_id: str, pitch: str):
     """
     logger = AgentLogger("analysis_worker", analysis_id)
     
+    async def update_progress(message: str, progress: int):
+        """Helper to send progress updates to WebSocket clients"""
+        await websocket_manager.send_progress_update(analysis_id, message, progress)
+        logger.log_event("progress_update", message, {"progress": progress})
+    
     try:
         # Log analysis start
         logger.log_event(
@@ -48,20 +89,42 @@ async def run_analysis(analysis_id: str, pitch: str):
             {"pitch_length": len(pitch) if pitch else 0}
         )
         
-        # Run the committee analysis
+        # Run the committee analysis with progress updates
         start_time = datetime.utcnow()
-        result = await committee.analyze_pitch(pitch)
+        await update_progress("Starting analysis...", 10)
+        
+        # Run analysis with progress tracking
+        result = await committee.analyze_pitch_with_progress(
+            pitch,
+            progress_callback=lambda msg, pct: update_progress(msg, 10 + int(pct * 0.8))  # 10-90% for analysis
+        )
+        
         duration = (datetime.utcnow() - start_time).total_seconds()
+        await update_progress("Finalizing results...", 95)
         
         # Log analysis completion
-        logger.log_event(
-            "analysis_completed",
-            "Successfully completed pitch analysis",
-            {
-                "duration_seconds": duration,
-                "result_summary": result.get("summary", "")[:500]  # Log first 500 chars of summary
-            }
-        )
+        try:
+            # Safely get the summary, handling cases where it might not be a string
+            summary = result.get("summary", "")
+            if not isinstance(summary, str):
+                summary = str(summary)
+            summary_preview = summary[:500] if summary else ""
+            
+            logger.log_event(
+                "analysis_completed",
+                "Successfully completed pitch analysis",
+                {
+                    "duration_seconds": duration,
+                    "result_summary": summary_preview
+                }
+            )
+        except Exception as e:
+            logger.log_event(
+                "analysis_log_error",
+                f"Error logging analysis completion: {str(e)}",
+                {"error": str(e), "result_type": type(result).__name__},
+                level="error"
+            )
         
         # Format the result
         formatted_result = {
@@ -73,6 +136,7 @@ async def run_analysis(analysis_id: str, pitch: str):
         
         # Store the result
         analysis_results[analysis_id] = formatted_result
+        await update_progress("Analysis complete!", 100)
         
         # If there's a webhook URL, notify it
         if analysis_callbacks.get(analysis_id):
@@ -171,13 +235,16 @@ async def evaluate_pitch(
         pitch=request.pitch
     )
     
+    # Return immediately with the analysis ID
     return {
         "analysisId": analysis_id,
         "status": "processing",
         "message": "Analysis started. Use the analysis_id to check status."
     }
+    # }
 
 @router.get("/status/{analysis_id}", response_model=AnalysisResponse)
+@router.get("/{analysis_id}", response_model=AnalysisResponse, include_in_schema=False)
 async def get_analysis_status(analysis_id: str, request: Request):
     """
     Get the status of a previously started analysis.
@@ -224,8 +291,15 @@ async def get_analysis_status(analysis_id: str, request: Request):
             "analysisId": analysis_id,
             "status": result.get("status", "unknown"),
             "result": result.get("result"),
-            "message": result.get("message")
+            "message": str(result.get("message", ""))  # Ensure message is always a string
         }
+        
+        # If status is error, ensure we have a proper error message
+        if response["status"] == "error":
+            if not response["message"] and response["result"]:
+                response["message"] = str(response["result"])
+            elif not response["message"]:
+                response["message"] = "An unknown error occurred"
         
         # Format the summary if it exists
         if response.get("result") and isinstance(response["result"], dict) and "summary" in response["result"]:
@@ -247,6 +321,81 @@ async def get_analysis_status(analysis_id: str, request: Request):
         logger.log_event(
             "status_check_error",
             f"Error checking status of analysis {analysis_id}: {str(e)}",
+            {"error_type": type(e).__name__},
+            level="error"
+        )
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/history/list", response_model=List[Dict[str, Any]])
+async def get_analysis_history(
+    request: Request,
+    skip: int = 0,
+    limit: int = 10
+):
+    """
+    Get the analysis history for the current user.
+    Returns a paginated list of analyses, most recent first.
+    """
+    # Get the user ID from the request state
+    user_id = getattr(request.state, "user_id", None)
+    
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    
+    # Create a logger for this request
+    request_id = getattr(request.state, 'request_id', str(uuid.uuid4()))
+    logger = AgentLogger("analysis_api", request_id)
+    
+    try:
+        # Create analysis service instance
+        analysis_service = AnalysisService()
+        
+        # Log the history request
+        logger.log_event(
+            "history_request",
+            f"Fetching analysis history for user {user_id}",
+            {"skip": skip, "limit": limit}
+        )
+        
+        # Get analyses from the database
+        analyses = await analysis_service.storage.list_analyses(
+            user_id=user_id,
+            skip=skip,
+            limit=limit
+        )
+        
+        # Format the response
+        formatted_analyses = []
+        for analysis in analyses:
+            formatted = {
+                "id": str(analysis.get("_id", "")),
+                "createdAt": analysis.get("created_at"),
+                "status": analysis.get("status", "unknown"),
+                "pitch_preview": (analysis.get("input", {}).get("pitch", "")[:100] + "...") if analysis.get("input", {}).get("pitch") else "",
+                "website_url": analysis.get("input", {}).get("website_url"),
+                "summary": analysis.get("summary", {})
+            }
+            
+            # Add analysis metrics if available
+            if analysis.get("analysis"):
+                formatted["metrics"] = {
+                    "score": analysis["analysis"].get("score"),
+                    "sentiment": analysis["analysis"].get("sentiment")
+                }
+            
+            formatted_analyses.append(formatted)
+        
+        logger.log_event(
+            "history_response",
+            f"Returning {len(formatted_analyses)} analyses"
+        )
+        
+        return formatted_analyses
+        
+    except Exception as e:
+        logger.log_event(
+            "history_error",
+            f"Error fetching analysis history: {str(e)}",
             {"error_type": type(e).__name__},
             level="error"
         )

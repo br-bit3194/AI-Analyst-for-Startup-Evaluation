@@ -1,14 +1,29 @@
 import time
 import uuid
+import asyncio
 from datetime import datetime
 from fastapi import FastAPI, APIRouter, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from typing import Callable, Awaitable
 import traceback
+import logging
 
-from app.db import init_db
-from app.routers import upload, documents, debate, seed, finance, analysis, deal_analysis, verdict
+from app.db.mongodb import db_client
+from app.services.metadata_service import metadata_service
+from app.middleware import MetadataMiddleware, MetadataRoute
+from app.routers import (
+    upload, 
+    documents, 
+    debate, 
+    seed, 
+    finance, 
+    analysis, 
+    deal_analysis, 
+    verdict, 
+    startup_analysis,
+    agent_context
+)
 from app.logging_config import setup_logger, get_agent_logger
 
 # Initialize root logger
@@ -26,8 +41,17 @@ api_router.include_router(finance.router)
 api_router.include_router(analysis.router)
 api_router.include_router(deal_analysis.router)
 api_router.include_router(verdict.router)
+api_router.include_router(startup_analysis.router)
+api_router.include_router(agent_context.router, prefix="/agent", tags=["agent"])
 
-app = FastAPI(title="Startup AI Backend")
+# Create FastAPI app with custom route class
+app = FastAPI(
+    title="Startup AI Backend",
+    route_class=MetadataRoute
+)
+
+# Add metadata middleware
+app.add_middleware(MetadataMiddleware)
 
 # Request logging middleware
 @app.middleware("http")
@@ -70,9 +94,32 @@ async def log_requests(request: Request, call_next: Callable[[Request], Awaitabl
 
 @app.on_event("startup")
 async def startup_event():
-    logger.info("Starting up application...")
-    await init_db()
-    logger.info("Database initialized")
+    """Handle application startup."""
+    try:
+        # Initialize database connection
+        await db_client.connect_db()
+        
+        # Clean up any old metadata on startup
+        await metadata_service.cleanup_old_metadata(max_age_hours=24)
+        
+        logger.info("Application startup complete")
+    except Exception as e:
+        logger.error(f"Error during startup: {str(e)}")
+        raise
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    """Handle application shutdown."""
+    try:
+        # Clean up all metadata on shutdown
+        await metadata_service.cleanup_all_metadata()
+        
+        # Close database connection
+        await db_client.close_db()
+        
+        logger.info("Application shutdown complete")
+    except Exception as e:
+        logger.error(f"Error during shutdown: {str(e)}")
 
 # Mount the API router
 app.include_router(api_router)

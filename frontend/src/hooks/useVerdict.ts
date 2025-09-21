@@ -1,12 +1,27 @@
 import { useState, useEffect, useCallback } from 'react';
 import { message } from 'antd';
-import api from '@/services/api';
+import * as api from '@/services/api';
+import { AnalysisResponse } from '@/services/api';
 
-interface Verdict {
-  recommendation: 'INVEST' | 'CONSIDER' | 'PASS';
+export interface Verdict {
+  recommendation: 'INVEST' | 'CONSIDER' | 'PASS' | 'STRONG_INVEST' | 'HIGH_RISK';
   confidence: number;
   summary: string;
   rationale: string;
+  committee_analysis?: {
+    members: Array<{
+      name: string;
+      role: string;
+      personality: string;
+      vote: 'STRONG_INVEST' | 'CONSIDER' | 'HIGH_RISK' | 'PASS';
+      confidence: number;
+      analysis: string;
+      reasoning: string;
+    }>;
+    final_verdict: string;
+    consensus_score: number;
+    key_debate_points: string[];
+  };
 }
 
 export const useVerdict = (analysisId?: string) => {
@@ -21,40 +36,29 @@ export const useVerdict = (analysisId?: string) => {
     setError(null);
     
     try {
-      // In a real implementation, you would fetch from your API
-      // const response = await api.get(`/verdict/${id}`);
-      // setVerdict(response.data);
+      const response = await api.getAnalysis(id);
       
-      // Mock response for now
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // Simulate different verdicts based on analysisId hash
-      const hash = id.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
-      const verdictType = ['INVEST', 'CONSIDER', 'PASS'][hash % 3];
-      const confidence = 60 + (hash % 40); // 60-99
-      
-      const mockVerdicts = {
-        INVEST: {
-          recommendation: 'INVEST',
+      if (response.status === 'completed' && response.result) {
+        const { verdict, confidence, summary, rationale, committee_analysis } = response.result;
+        setVerdict({
+          recommendation: verdict as 'INVEST' | 'CONSIDER' | 'PASS' | 'STRONG_INVEST' | 'HIGH_RISK',
           confidence,
-          summary: 'Strong investment opportunity with experienced team and growing market.',
-          rationale: 'The startup demonstrates a strong product-market fit with a clear value proposition. The founding team has relevant industry experience and a track record of success.'
-        },
-        CONSIDER: {
-          recommendation: 'CONSIDER',
-          confidence,
-          summary: 'Promising opportunity with some areas requiring further due diligence.',
-          rationale: 'The company shows potential but has some risks that need to be carefully evaluated. Further investigation into the competitive landscape and unit economics is recommended.'
-        },
-        PASS: {
-          recommendation: 'PASS',
-          confidence,
-          summary: 'Significant concerns that currently outweigh the potential benefits.',
-          rationale: 'The analysis indicates several red flags including unclear market differentiation and concerns about the financial projections. The current risk/reward profile does not justify investment.'
-        }
-      };
-      
-      setVerdict(mockVerdicts[verdictType as keyof typeof mockVerdicts]);
+          summary,
+          rationale,
+          committee_analysis: committee_analysis ? {
+            ...committee_analysis,
+            final_verdict: committee_analysis.final_verdict || verdict,
+            members: committee_analysis.members || [],
+            key_debate_points: committee_analysis.key_debate_points || []
+          } : undefined
+        });
+      } else if (response.status === 'failed') {
+        throw new Error('Analysis failed to complete');
+      } else {
+        // If still processing, poll again after a delay
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        return fetchVerdict(id);
+      }
     } catch (err) {
       console.error('Error fetching verdict:', err);
       setError(err instanceof Error ? err : new Error('Failed to fetch verdict'));
@@ -70,48 +74,50 @@ export const useVerdict = (analysisId?: string) => {
     }
   }, [analysisId, fetchVerdict]);
 
-  const generateVerdict = useCallback(async (analysisData: any) => {
+  const generateVerdict = useCallback(async (analysisData: { pitch: string; website_url?: string; additional_context?: string }) => {
     setLoading(true);
     setError(null);
     
     try {
-      // In a real implementation, you would post to your API
-      // const response = await api.post('/verdict/generate', analysisData);
-      // setVerdict(response.data);
+      // Start the analysis
+      const response = await api.analyzeStartup({
+        pitch: analysisData.pitch,
+        website_url: analysisData.website_url,
+        additional_context: analysisData.additional_context
+      });
       
-      // Mock response for now
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
-      // Simulate different verdicts based on analysis data hash
-      const dataStr = JSON.stringify(analysisData);
-      const hash = dataStr.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
-      const verdictType = ['INVEST', 'CONSIDER', 'PASS'][hash % 3];
-      const confidence = 60 + (hash % 40); // 60-99
-      
-      const mockVerdicts = {
-        INVEST: {
-          recommendation: 'INVEST',
-          confidence,
-          summary: 'Strong investment opportunity with experienced team and growing market.',
-          rationale: 'The startup demonstrates a strong product-market fit with a clear value proposition. The founding team has relevant industry experience and a track record of success.'
-        },
-        CONSIDER: {
-          recommendation: 'CONSIDER',
-          confidence,
-          summary: 'Promising opportunity with some areas requiring further due diligence.',
-          rationale: 'The company shows potential but has some risks that need to be carefully evaluated. Further investigation into the competitive landscape and unit economics is recommended.'
-        },
-        PASS: {
-          recommendation: 'PASS',
-          confidence,
-          summary: 'Significant concerns that currently outweigh the potential benefits.',
-          rationale: 'The analysis indicates several red flags including unclear market differentiation and concerns about the financial projections. The current risk/reward profile does not justify investment.'
+      // Start polling for results
+      const pollForResults = async (id: string): Promise<AnalysisResponse> => {
+        const status = await api.getAnalysisStatus(id);
+        
+        if (status.status === 'completed') {
+          return api.getAnalysis(id);
+        } else if (status.status === 'failed') {
+          throw new Error('Analysis failed');
+        } else {
+          // Wait and poll again
+          await new Promise(resolve => setTimeout(resolve, 2000));
+          return pollForResults(id);
         }
       };
       
-      const result = mockVerdicts[verdictType as keyof typeof mockVerdicts];
-      setVerdict(result);
-      return result;
+      // Get the final results
+      const finalResults = await pollForResults(response.id);
+      
+      if (finalResults.status === 'completed' && finalResults.result) {
+        const { verdict, confidence, summary, rationale } = finalResults.result;
+        const result = {
+          recommendation: verdict as 'INVEST' | 'CONSIDER' | 'PASS',
+          confidence,
+          summary,
+          rationale
+        };
+        
+        setVerdict(result);
+        return result;
+      } else {
+        throw new Error('Analysis did not complete successfully');
+      }
     } catch (err) {
       console.error('Error generating verdict:', err);
       setError(err instanceof Error ? err : new Error('Failed to generate verdict'));

@@ -24,6 +24,33 @@ class CommitteeCoordinator:
         ]
         self.executor = ThreadPoolExecutor(max_workers=len(self.agents) + 2)  # +2 for overhead
     
+    async def analyze_pitch_with_progress(
+        self, 
+        pitch: str, 
+        progress_callback: Optional[callable] = None
+    ) -> Dict[str, Any]:
+        """
+        Coordinate the analysis of a pitch across all agents with progress updates.
+        
+        Args:
+            pitch: The startup pitch to analyze
+            progress_callback: Optional callback function that receives (message, progress)
+            
+        Returns:
+            Dict containing analysis results from all agents and final verdict
+        """
+        async def update_progress(message: str, progress: int):
+            if progress_callback:
+                await progress_callback(message, progress)
+                
+        await update_progress("Initializing analysis...", 0)
+        
+        # Wrap the original analyze_pitch to maintain backward compatibility
+        result = await self.analyze_pitch(pitch)
+        
+        await update_progress("Analysis complete!", 100)
+        return result
+        
     async def analyze_pitch(self, pitch: str) -> Dict[str, Any]:
         """
         Coordinate the analysis of a pitch across all agents.
@@ -50,6 +77,10 @@ class CommitteeCoordinator:
         # Run all agents in parallel with progress tracking
         analysis_results = {}
         tasks = []
+        
+        # Progress tracking
+        total_agents = len(self.agents)
+        completed_agents = 0
         
         print("\n=== Starting agent analysis ===")
         print(f"Number of agents: {len(self.agents)}")
@@ -87,6 +118,16 @@ class CommitteeCoordinator:
                     result.setdefault('error', None)
                 
                 analysis_results[agent_name] = result
+                completed_agents += 1
+                
+                # Update progress
+                progress = int((completed_agents / total_agents) * 100)
+                await asyncio.get_event_loop().run_in_executor(
+                    None,
+                    lambda: asyncio.create_task(
+                        update_progress(f"{agent_name} analysis complete", progress)
+                    ) if hasattr(self, 'update_progress') else None
+                )
                 
             except Exception as e:
                 error_msg = f"Agent {agent_name} failed: {str(e)}"
@@ -98,6 +139,16 @@ class CommitteeCoordinator:
                     'error': error_msg,
                     'data': {}
                 }
+                completed_agents += 1
+                
+                # Update progress even on error
+                progress = int((completed_agents / total_agents) * 100)
+                await asyncio.get_event_loop().run_in_executor(
+                    None,
+                    lambda: asyncio.create_task(
+                        update_progress(f"{agent_name} failed: {error_msg}", progress)
+                    ) if hasattr(self, 'update_progress') else None
+                )
         
         # Generate final recommendation
         final_verdict = await self._generate_verdict(analysis_results)

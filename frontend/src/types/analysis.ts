@@ -20,16 +20,49 @@ export interface AnalysisSummary {
   recommendations: string[];
 }
 
+export interface WebsiteAnalysis {
+  url: string;
+  status: 'processed' | 'not_processed' | 'error';
+  error?: string;
+  domain?: string;
+  contentLength?: number;
+  contentPreview?: string;
+  storeId?: string;
+}
+
+export interface PitchAnalysis {
+  content: string;
+  length: number;
+  word_count: number;
+  [key: string]: any;
+}
+
+export interface CombinedAnalysis {
+  summary: string;
+  has_website_data: boolean;
+  [key: string]: any;
+}
+
 export interface AnalysisResponse {
-  analysisId: string;  // Changed from analysis_id to analysisId
+  // Standard fields
+  analysisId: string;
   status: 'processing' | 'completed' | 'error';
-  startTime?: string;  // Changed from start_time
-  durationSeconds?: number;  // Changed from duration_seconds
-  agents: Record<string, AgentAnalysis>;
-  finalVerdict?: Verdict;  // Changed from final_verdict
-  summary?: AnalysisSummary;
+  startTime?: string;
+  durationSeconds?: number;
   message?: string;
+  timestamp?: string;
+  
+  // Analysis components
+  pitch_analysis: PitchAnalysis;
+  website_analysis?: WebsiteAnalysis | null;
+  combined_analysis: CombinedAnalysis;
+  
+  // Legacy fields (for backward compatibility)
+  agents?: Record<string, AgentAnalysis>;
+  finalVerdict?: Verdict;
+  summary?: AnalysisSummary;
   result?: any;
+  [key: string]: any;
 }
 
 export interface CommitteeMember {
