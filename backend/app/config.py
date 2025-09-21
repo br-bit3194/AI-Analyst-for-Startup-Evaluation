@@ -8,8 +8,10 @@ class Settings(BaseSettings):
     use_cloud: bool = False
     gcloud_bucket: Optional[str] = None
     redis_url: Optional[str] = None
-    llm_provider: str = "custom"
-    openai_api_key: str
+    llm_provider: str = "gemini"
+    openai_api_key: Optional[str] = None
+    gemini_api_key: Optional[str] = None
+    use_vision: bool = False
 
     class Config:
         env_file = ".env"

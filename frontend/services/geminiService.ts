@@ -1,31 +1,38 @@
-import { GoogleGenAI } from "@google/genai";
 import type { DealAnalysis } from "../types";
-import { GEMINI_PROMPT, DEAL_ANALYSIS_SCHEMA } from "../constants";
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
 export async function analyzeDeal(pitch: string): Promise<DealAnalysis> {
-  const prompt = GEMINI_PROMPT.replace('{pitch}', pitch);
-  
   try {
-    const response = await ai.models.generateContent({
-        model: "gemini-2.5-flash",
-        contents: prompt,
-        config: {
-            responseMimeType: "application/json",
-            responseSchema: DEAL_ANALYSIS_SCHEMA,
-            temperature: 0.5,
-        }
+    const response = await fetch(`${API_URL}/api/analysis/evaluate`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ pitch }),
     });
 
-    const jsonText = response.text.trim();
-    // In case the model wraps the JSON in markdown
-    const cleanedJsonText = jsonText.replace(/^```json\n?/, "").replace(/```$/, "");
-    const parsedData = JSON.parse(cleanedJsonText);
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.detail || 'Failed to analyze deal');
+    }
+
+    const data = await response.json();
     
-    return parsedData as DealAnalysis;
+    // Transform the response to match the DealAnalysis type
+    const analysis: DealAnalysis = {
+      overallVerdict: data.overall_verdict,
+      founderDna: data.founder_dna,
+      marketPulse: data.market_pulse,
+      investmentCommittee: data.investment_committee,
+      investmentMemory: data.investment_memory,
+      portfolioSynergies: data.portfolio_synergies,
+      documentId: `doc_${Date.now()}` // Generate a document ID for tracking
+    };
+    
+    return analysis;
   } catch (error) {
-    console.error("Gemini API call failed:", error);
-    throw new Error("Failed to get analysis from Gemini API.");
+    console.error("Analysis failed:", error);
+    throw new Error(error instanceof Error ? error.message : "Failed to analyze deal");
   }
 }
