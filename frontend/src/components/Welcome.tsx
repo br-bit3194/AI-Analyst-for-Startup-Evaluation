@@ -1,12 +1,14 @@
 import React from 'react';
 
 const FeatureCard: React.FC<{ title: string; description: string; icon: React.ReactNode }> = ({ title, description, icon }) => (
-    <div className="bg-slate-800/50 p-6 rounded-lg border border-slate-700 text-center">
-        <div className="flex justify-center items-center mb-4 w-12 h-12 rounded-full bg-slate-700 mx-auto">
-            {icon}
+    <div className="bg-white/90 p-6 rounded-lg border border-gray-200 text-center shadow-sm hover:shadow-md transition-shadow duration-200">
+        <div className="flex justify-center items-center mb-4 w-12 h-12 rounded-full bg-indigo-100 mx-auto">
+            {React.cloneElement(icon as React.ReactElement, { 
+                className: 'h-6 w-6 text-indigo-600' 
+            })}
         </div>
-        <h3 className="mb-2 text-lg font-semibold text-white">{title}</h3>
-        <p className="text-slate-400 text-sm">{description}</p>
+        <h3 className="mb-2 text-lg font-semibold text-gray-800">{title}</h3>
+        <p className="text-gray-600 text-sm leading-relaxed">{description}</p>
     </div>
 );
 
@@ -14,11 +16,10 @@ const FeatureCard: React.FC<{ title: string; description: string; icon: React.Re
 const Welcome: React.FC = () => {
     return (
         <div className="text-center py-10 px-4">
-            <h2 className="text-4xl font-extrabold text-white mb-4">Welcome to Startalytica</h2>
-            <p className="text-lg text-slate-300 max-w-3xl mx-auto mb-12">
-                Your AI-powered Venture Capital Associate. Enter a startup's details above to receive a comprehensive investment analysis, leveraging simulated institutional knowledge and multi-persona evaluation.
+            <p className="text-lg text-gray-700 max-w-3xl mx-auto mb-12 leading-relaxed">
+                Your <span className="font-semibold text-indigo-600">AI-powered Venture Capital Associate</span>. Enter a startup's details above to receive a comprehensive investment analysis, leveraging simulated institutional knowledge and multi-persona evaluation.
             </p>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 max-w-6xl mx-auto">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 max-w-6xl mx-auto text-white">
                 <FeatureCard 
                     title="Founder DNA Analysis" 
                     description="Analyzes communication, team dynamics, and predicts founder responses to stress."

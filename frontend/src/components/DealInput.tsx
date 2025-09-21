@@ -150,7 +150,7 @@ Pitch: We're building a decentralized platform using blockchain and AI to create
   };
 
   return (
-    <div className="bg-slate-800 p-6 rounded-xl shadow-lg border border-slate-700">
+    <div className="bg-gradient-to-br from-blue-900/40 to-indigo-900/30 p-6 rounded-xl shadow-lg border border-indigo-500/30 backdrop-blur-sm">
       <form onSubmit={handleSubmit}>
         <label htmlFor="pitch-input" className="block text-lg font-semibold mb-2 text-slate-200">
           Enter Startup Pitch or Description
@@ -158,8 +158,10 @@ Pitch: We're building a decentralized platform using blockchain and AI to create
         
         {/* File Upload Area */}
         <div 
-          className={`mt-2 mb-4 p-6 border-2 border-dashed rounded-lg text-center cursor-pointer transition-colors ${
-            isDragging ? 'border-brand-accent bg-slate-900/50' : 'border-slate-600 hover:border-slate-500'
+          className={`mt-2 mb-4 p-6 border-2 border-dashed rounded-lg text-center cursor-pointer transition-all duration-300 ${
+            isDragging 
+              ? 'border-blue-400 bg-blue-900/30 shadow-lg scale-[1.01]' 
+              : 'border-indigo-400/50 hover:border-blue-400 hover:bg-blue-900/20 hover:shadow-md'
           }`}
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
@@ -175,13 +177,13 @@ Pitch: We're building a decentralized platform using blockchain and AI to create
             disabled={isLoading || isUploading || disabled}
           />
           <div className="flex flex-col items-center justify-center space-y-2">
-            <svg className="w-10 h-10 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <svg className="w-10 h-10 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
             </svg>
-            <p className="text-sm text-slate-300">
-              <span className="font-medium text-brand-accent">Click to upload</span> or drag and drop
+            <p className="text-sm text-gray-800">
+              <span className="font-semibold text-indigo-600 hover:text-indigo-500 transition-colors">Click to upload</span> or drag and drop
             </p>
-            <p className="text-xs text-slate-500">PDF, DOCX, PPT, TXT, or images (max 10MB)</p>
+            <p className="text-xs text-gray-500">PDF, DOCX, PPT, TXT, or images (max 10MB)</p>
           </div>
         </div>
 
@@ -206,9 +208,12 @@ Pitch: We're building a decentralized platform using blockchain and AI to create
             onChange={(e) => setPitch(e.target.value)}
             placeholder={disabled ? 'Analysis in progress...' : 'Paste your pitch here or upload a document...'}
             disabled={disabled}
-            className={`w-full h-64 p-4 bg-slate-800 border border-slate-700 rounded-lg text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none ${
-              disabled ? 'opacity-70 cursor-not-allowed' : ''
+            className={`w-full h-64 p-6 bg-gradient-to-br from-indigo-50 to-blue-50 border-2 border-indigo-200 rounded-xl text-gray-800 placeholder-indigo-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-300 focus:shadow-lg resize-none transition-all duration-200 ${
+              disabled ? 'opacity-70 cursor-not-allowed' : 'hover:border-indigo-300 hover:shadow-md'
             }`}
+            style={{
+              boxShadow: '0 4px 20px -5px rgba(99, 102, 241, 0.15)'
+            }}
           />
           {pitch && (
             <button
@@ -222,47 +227,36 @@ Pitch: We're building a decentralized platform using blockchain and AI to create
               </svg>
             </button>
           )}
-        </div>
-
-        <div className="mt-4 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="flex space-x-2 w-full sm:w-auto">
+          
+          <div className="flex flex-col sm:flex-row gap-4 mt-6">
             <button
               type="button"
               onClick={handleUseSample}
-              disabled={isLoading || isUploading}
-              className="w-1/2 sm:w-auto px-4 py-2.5 text-sm font-medium text-slate-300 bg-slate-700 rounded-lg hover:bg-slate-600 focus:ring-4 focus:outline-none focus:ring-slate-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              disabled={isLoading || isUploading || disabled}
+              className="px-6 py-2.5 text-sm font-medium rounded-lg border-2 border-blue-400/50 text-blue-100 bg-blue-900/30 hover:bg-blue-800/40 hover:border-blue-300/70 hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 flex-1 sm:flex-none"
             >
-              Sample Pitch
+              Use Sample Pitch
             </button>
             <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              disabled={isLoading || isUploading}
-              className="w-1/2 sm:w-auto px-4 py-2.5 text-sm font-medium text-slate-300 bg-slate-700 rounded-lg hover:bg-slate-600 focus:ring-4 focus:outline-none focus:ring-slate-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-1"
+              type="submit"
+              disabled={!pitch.trim() || isLoading || isUploading || disabled}
+              className={`px-8 py-2.5 text-sm font-medium rounded-lg text-white ${
+                pitch.trim() 
+                  ? 'bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-500/90 hover:to-indigo-600/90 hover:shadow-lg hover:scale-[1.02]' 
+                  : 'bg-slate-700 cursor-not-allowed'
+              } disabled:opacity-50 transition-all duration-300 flex-1 sm:flex-none`}
             >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
-              </svg>
-              <span>Upload</span>
+              {isLoading || isUploading ? (
+                <span className="flex items-center justify-center">
+                  <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  Analyzing...
+                </span>
+              ) : 'Analyze Pitch'}
             </button>
           </div>
-          <button
-            type="submit"
-            disabled={isLoading || isUploading || !pitch.trim()}
-            className="w-full sm:w-auto inline-flex items-center justify-center px-6 py-3 text-base font-bold text-white bg-brand-blue rounded-lg hover:bg-brand-accent focus:ring-4 focus:outline-none focus:ring-blue-300 disabled:bg-slate-600 disabled:cursor-not-allowed transition-colors"
-          >
-            {isLoading || isUploading ? (
-              <>
-                <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-                {isUploading ? 'Processing...' : 'Multi-Agent Analysis...'}
-              </>
-            ) : (
-              'Summon the Oracle'
-            )}
-          </button>
         </div>
 
       </form>

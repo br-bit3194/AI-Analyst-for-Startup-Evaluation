@@ -14,30 +14,64 @@ import InvestmentCommittee from './components/analysis/InvestmentCommittee';
 // Layout with Sidebar
 const DashboardLayout: React.FC = () => {
   return (
-    <div className="flex h-screen bg-gray-50">
-      <Sidebar />
-      <div className="flex flex-col flex-1 overflow-hidden">
-        <Header />
-        <main className="flex-1 overflow-y-auto bg-gray-50">
-          <div className="py-6">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8">
+    <div className="min-h-screen bg-gray-50 flex">
+      {/* Fixed Sidebar */}
+      <div className="fixed top-0 left-0 h-full z-50">
+        <Sidebar />
+      </div>
+      
+      {/* Main Content Area */}
+      <div className="flex-1 flex flex-col min-h-screen ml-16">
+        {/* Fixed Header */}
+        <div className="fixed top-0 right-0 left-16 z-40 bg-white border-b border-gray-200">
+          <Header />
+        </div>
+        
+        {/* Scrollable Content */}
+        <main className="flex-1 pt-16 pb-8 overflow-y-auto bg-gray-50">
+          <div className="container mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="bg-white rounded-xl shadow-sm p-6 mb-8 mt-6">
+              <h1 className="text-2xl font-semibold text-gray-900">
+                {document.title || 'AI Startup Analyst'}
+              </h1>
+              <p className="mt-1 text-sm text-gray-500">
+                Comprehensive startup evaluation and analysis
+              </p>
+            </div>
+            <div className="space-y-6">
               <Outlet />
             </div>
           </div>
         </main>
+        
+        {/* Footer */}
+        <footer className="bg-white border-t border-gray-200 py-4">
+          <div className="container mx-auto px-4 sm:px-6 lg:px-8">
+            <p className="text-center text-sm text-gray-500">
+              © {new Date().getFullYear()} AI Startup Analyst. All rights reserved.
+            </p>
+          </div>
+        </footer>
       </div>
     </div>
   );
 };
 
-// Layout without Sidebar
+// Layout without Sidebar (for auth pages, etc.)
 const SimpleLayout: React.FC = () => {
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-gradient-to-br from-indigo-50 to-blue-50">
       <Header />
-      <main>
-        <Outlet />
+      <main className="min-h-[calc(100vh-4rem)] flex items-center justify-center p-4">
+        <div className="w-full max-w-2xl">
+          <Outlet />
+        </div>
       </main>
+      <footer className="bg-white border-t border-gray-200 py-4">
+        <div className="container mx-auto px-4 text-center text-sm text-gray-500">
+          © {new Date().getFullYear()} AI Startup Analyst. All rights reserved.
+        </div>
+      </footer>
     </div>
   );
 };
@@ -240,18 +274,23 @@ const DealAnalysis: React.FC = () => {
       <div className="space-y-6">
         {/* Analysis in Progress */}
         {isLoading && (
-          <div className="rounded-md bg-blue-50 p-4">
-            <div className="flex">
-              <div className="flex-shrink-0">
-                <LoadingSpinner />
+          <div className="rounded-md bg-blue-50 p-6 text-center">
+            <div className="flex flex-col items-center space-y-4">
+              <div className="flex items-center justify-center">
+                <div className="flex-shrink-0">
+                  <LoadingSpinner />
+                </div>
+                <div className="ml-3">
+                  <p className="text-lg font-medium text-blue-800">
+                    {activeTab === 'committee' 
+                      ? 'Simulating investment committee discussion...' 
+                      : 'Analyzing your startup pitch...'}
+                  </p>
+                </div>
               </div>
-              <div className="ml-3">
-                <p className="text-sm font-medium text-blue-800">
-                  {activeTab === 'committee' 
-                    ? 'Simulating investment committee discussion...' 
-                    : 'Analyzing your startup pitch...'}
-                </p>
-              </div>
+              <p className="text-sm text-blue-700">
+                Please wait while the analysis is being generated.
+              </p>
             </div>
           </div>
         )}
