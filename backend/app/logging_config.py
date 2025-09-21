@@ -1,15 +1,6 @@
 import logging
 import sys
-import os
-from logging.handlers import RotatingFileHandler
-from pathlib import Path
 from typing import Optional
-
-from app.config import settings
-
-# Ensure logs directory exists
-LOG_DIR = Path("logs")
-LOG_DIR.mkdir(exist_ok=True, parents=True)
 
 # Agent-specific log formatter
 class AgentLogFormatter(logging.Formatter):    
@@ -21,7 +12,7 @@ class AgentLogFormatter(logging.Formatter):
 
 def setup_logger(name: str, log_level: Optional[str] = None) -> logging.Logger:
     """
-    Set up a logger with both file and console handlers.
+    Set up a logger with console output only.
     
     Args:
         name: Logger name (usually __name__)
@@ -39,34 +30,18 @@ def setup_logger(name: str, log_level: Optional[str] = None) -> logging.Logger:
     level = getattr(logging, log_level or "INFO")
     logger.setLevel(level)
     
-    # Create formatters
-    file_formatter = AgentLogFormatter(
-        '%(asctime)s - %(agent_id)s - %(levelname)s - %(name)s - %(message)s',
-        datefmt='%Y-%m-%d %H:%M:%S'
-    )
+    # Create formatter for console output
     console_formatter = AgentLogFormatter(
         '%(asctime)s - %(agent_id)s - %(levelname)s - %(name)s - %(message)s',
         datefmt='%H:%M:%S'
     )
     
-    # Create file handler
-    log_file = LOG_DIR / f"{name.replace('.', '_')}.log"
-    file_handler = RotatingFileHandler(
-        log_file, 
-        maxBytes=10*1024*1024,  # 10MB
-        backupCount=5,
-        encoding='utf-8'
-    )
-    file_handler.setFormatter(file_formatter)
-    
     # Create console handler
     console_handler = logging.StreamHandler(sys.stdout)
     console_handler.setFormatter(console_formatter)
     
-    # Add handlers if not already added
-    if not logger.handlers:
-        logger.addHandler(file_handler)
-        logger.addHandler(console_handler)
+    # Clear any existing handlers and add console handler
+    logger.handlers = [console_handler]
     
     return logger
 
