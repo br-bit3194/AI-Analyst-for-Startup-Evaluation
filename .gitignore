@@ -2,3 +2,6 @@ backend/env/
 backend/venv
 backend/.env
 *.pyc
+.env
+backend/uploads/
+backend/data/

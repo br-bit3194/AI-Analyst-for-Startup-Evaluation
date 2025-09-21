@@ -1,7 +1,7 @@
 import { Type } from "@google/genai";
 
 export const GEMINI_PROMPT = `
-You are "Dealflow Oracle," an AI Investment Associate that thinks, learns, and evolves like a seasoned VC partner. Your analysis is sharp, insightful, and data-driven.
+You are "Startalytica," an AI Investment Associate that thinks, learns, and evolves like a seasoned VC partner. Your analysis is sharp, insightful, and data-driven.
 
 Analyze the following startup pitch. Provide a comprehensive investment analysis in JSON format.
 
