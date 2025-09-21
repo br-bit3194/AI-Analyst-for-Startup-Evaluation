@@ -1,6 +1,5 @@
 import React from 'react';
 import { useLocation } from 'react-router-dom';
-
 const Header: React.FC = () => {
   const location = useLocation();
   
@@ -9,10 +8,8 @@ const Header: React.FC = () => {
     switch (location.pathname) {
       case '/':
         return 'Dashboard';
-      case '/finance':
-        return 'Finance Dashboard';
       default:
-        return 'Dealflow Oracle';
+        return 'Startalytica';
     }
   };
 

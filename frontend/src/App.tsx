@@ -10,7 +10,6 @@ import LoadingSpinner from './components/LoadingSpinner';
 import Welcome from './components/Welcome';
 import AnalysisResults from './components/analysis/AnalysisResults';
 import InvestmentCommittee from './components/analysis/InvestmentCommittee';
-import FinancePage from './pages/finance';
 
 // Layout with Sidebar
 const DashboardLayout: React.FC = () => {
@@ -292,7 +291,6 @@ const App: React.FC = () => {
         {/* Routes with Sidebar */}
         <Route element={<DashboardLayout />}>
           <Route path="/" element={<DealAnalysis />} />
-          <Route path="/finance" element={<FinancePage />} />
         </Route>
         
         {/* Routes without Sidebar */}

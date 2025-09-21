@@ -11,12 +11,6 @@ const Sidebar = () => {
       icon: <LayoutDashboard className="h-5 w-5" />,
       active: location.pathname === '/'
     },
-    { 
-      name: 'Finance Dashboard', 
-      path: '/finance', 
-      icon: <BarChart3 className="h-5 w-5" />,
-      active: location.pathname === '/finance'
-    }
   ];
 
   return (
