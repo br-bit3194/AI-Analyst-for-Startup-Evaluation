@@ -6,14 +6,9 @@ interface DealInputProps {
   disabled: boolean;
 }
 
-interface DealInputProps {
-  onAnalyze: (pitch: string) => void;
-  isLoading: boolean;
-  disabled: boolean;
-}
-
 const DealInput: React.FC<DealInputProps> = ({ onAnalyze, isLoading, disabled }) => {
   const [pitch, setPitch] = useState('');
+  const [websiteUrl, setWebsiteUrl] = useState('');
   const [isDragging, setIsDragging] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
@@ -21,8 +16,14 @@ const DealInput: React.FC<DealInputProps> = ({ onAnalyze, isLoading, disabled })
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (pitch.trim()) {
-      onAnalyze(pitch);
+    let finalPitch = pitch;
+    
+    if (websiteUrl.trim()) {
+      finalPitch = `Website: ${websiteUrl}\n\n${pitch}`;
+    }
+    
+    if (finalPitch.trim()) {
+      onAnalyze(finalPitch);
     }
   };
 
@@ -152,9 +153,34 @@ Pitch: We're building a decentralized platform using blockchain and AI to create
   return (
     <div className="bg-gradient-to-br from-blue-900/40 to-indigo-900/30 p-6 rounded-xl shadow-lg border border-indigo-500/30 backdrop-blur-sm">
       <form onSubmit={handleSubmit}>
-        <label htmlFor="pitch-input" className="block text-lg font-semibold mb-2 text-slate-200">
-          Enter Startup Pitch or Description
-        </label>
+        <div className="mb-4">
+          <div className="flex items-center mb-1">
+            <svg className="w-4 h-4 mr-2 text-blue-700" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"></path>
+            </svg>
+            <label htmlFor="website-url" className="block text-sm font-semibold text-blue-700">
+              Website URL <span className="text-xs font-normal text-slate-500">(optional)</span>
+            </label>
+          </div>
+          <input
+            type="url"
+            id="website-url"
+            value={websiteUrl}
+            onChange={(e) => setWebsiteUrl(e.target.value)}
+            placeholder="https://yourstartup.com"
+            className="w-full px-4 py-2.5 bg-indigo-900/70 border-2 border-indigo-600/50 rounded-xl text-white placeholder-indigo-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-300 shadow-lg hover:shadow-indigo-500/20 hover:border-indigo-500 backdrop-blur-sm"
+            disabled={isLoading || isUploading || disabled}
+          />
+        </div>
+        
+        <div className="flex items-center mb-2">
+          <svg className="w-5 h-5 mr-2 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+          </svg>
+          <label htmlFor="pitch-input" className="block text-lg font-semibold bg-gradient-to-r from-indigo-400 to-blue-500 bg-clip-text text-transparent">
+            Enter Startup Pitch or Description
+          </label>
+        </div>
         
         {/* File Upload Area */}
         <div 
@@ -180,10 +206,10 @@ Pitch: We're building a decentralized platform using blockchain and AI to create
             <svg className="w-10 h-10 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
             </svg>
-            <p className="text-sm text-gray-800">
-              <span className="font-semibold text-indigo-600 hover:text-indigo-500 transition-colors">Click to upload</span> or drag and drop
+            <p className="text-sm text-slate-200">
+              <span className="font-semibold text-blue-400 hover:text-blue-300 transition-colors">Click to upload</span> or drag and drop
             </p>
-            <p className="text-xs text-gray-500">PDF, DOCX, PPT, TXT, or images (max 10MB)</p>
+            <p className="text-xs text-slate-400">PDF, DOCX, PPT, TXT, or images (max 10MB)</p>
           </div>
         </div>
 
@@ -191,7 +217,7 @@ Pitch: We're building a decentralized platform using blockchain and AI to create
           <div className="mb-4">
             <div className="w-full bg-slate-700 rounded-full h-2.5">
               <div 
-                className="bg-brand-accent h-2.5 rounded-full transition-all duration-300" 
+                className="bg-blue-500 h-2.5 rounded-full transition-all duration-300" 
                 style={{ width: `${uploadProgress}%` }}
               ></div>
             </div>
@@ -215,53 +241,52 @@ Pitch: We're building a decentralized platform using blockchain and AI to create
               boxShadow: '0 4px 20px -5px rgba(99, 102, 241, 0.15)'
             }}
           />
-          {pitch && (
-            <button
-              type="button"
-              onClick={() => setPitch('')}
-              className="absolute top-2 right-2 p-1 rounded-full bg-slate-800/80 text-slate-400 hover:text-white transition-colors"
-              title="Clear text"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path>
-              </svg>
-            </button>
-          )}
-          
-          <div className="flex flex-col sm:flex-row gap-4 mt-6">
-            <button
-              type="button"
-              onClick={handleUseSample}
-              disabled={isLoading || isUploading || disabled}
-              className="px-6 py-2.5 text-sm font-medium rounded-lg border-2 border-blue-400/50 text-blue-100 bg-blue-900/30 hover:bg-blue-800/40 hover:border-blue-300/70 hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 flex-1 sm:flex-none"
-            >
-              Use Sample Pitch
-            </button>
-            <button
-              type="submit"
-              disabled={!pitch.trim() || isLoading || isUploading || disabled}
-              className={`px-8 py-2.5 text-sm font-medium rounded-lg text-white ${
-                pitch.trim() 
-                  ? 'bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-500/90 hover:to-indigo-600/90 hover:shadow-lg hover:scale-[1.02]' 
-                  : 'bg-slate-700 cursor-not-allowed'
-              } disabled:opacity-50 transition-all duration-300 flex-1 sm:flex-none`}
-            >
-              {isLoading || isUploading ? (
-                <span className="flex items-center justify-center">
-                  <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                  Analyzing...
-                </span>
-              ) : 'Analyze Pitch'}
-            </button>
+            {pitch && (
+              <button
+                type="button"
+                onClick={() => setPitch('')}
+                className="absolute top-2 right-2 p-1 rounded-full bg-slate-800/80 text-slate-400 hover:text-white transition-colors"
+                title="Clear text"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+              </button>
+            )}
+            
+            <div className="flex flex-col sm:flex-row gap-4 mt-6">
+              <button
+                type="button"
+                onClick={handleUseSample}
+                disabled={isLoading || isUploading || disabled}
+                className="px-6 py-2.5 text-sm font-medium rounded-lg border-2 border-blue-400/50 text-blue-100 bg-blue-900/30 hover:bg-blue-800/40 hover:border-blue-300/70 hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 flex-1 sm:flex-none"
+              >
+                Use Sample Pitch
+              </button>
+              <button
+                type="submit"
+                disabled={!pitch.trim() || isLoading || isUploading || disabled}
+                className={`px-8 py-2.5 text-sm font-medium rounded-lg text-white ${
+                  pitch.trim() 
+                    ? 'bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-500/90 hover:to-indigo-600/90 hover:shadow-lg hover:scale-[1.02]' 
+                    : 'bg-slate-700 cursor-not-allowed'
+                } disabled:opacity-50 transition-all duration-300 flex-1 sm:flex-none`}
+              >
+                {isLoading || isUploading ? (
+                  <span className="flex items-center justify-center">
+                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Analyzing...
+                  </span>
+                ) : 'Analyze Pitch'}
+              </button>
+            </div>
           </div>
-        </div>
-
-      </form>
-    </div>
-  );
-};
+        </form>
+      </div>
+    );
+  };
 
 export default DealInput;
