@@ -1,6 +1,6 @@
 from fastapi import FastAPI, APIRouter
 from app.db import init_db
-from app.routers import upload, documents, debate, seed, finance, analysis, deal_analysis
+from app.routers import upload, documents, debate, seed, finance, analysis, deal_analysis, alerts,ai_outputs,reports
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.requests import Request
@@ -15,6 +15,9 @@ api_router.include_router(seed.router)
 api_router.include_router(finance.router)
 api_router.include_router(analysis.router)
 api_router.include_router(deal_analysis.router)
+api_router.include_router(alerts.router)
+api_router.include_router(ai_outputs.router)
+api_router.include_router(reports.router)
 
 app = FastAPI(title="Startup AI Backend")
 
