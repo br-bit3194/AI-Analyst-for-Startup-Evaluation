@@ -15,29 +15,23 @@ import InvestmentCommittee from './components/analysis/InvestmentCommittee';
 const DashboardLayout: React.FC = () => {
   return (
     <div className="min-h-screen bg-gray-50 flex">
-      {/* Fixed Sidebar */}
-      <div className="fixed top-0 left-0 h-full z-50">
+      {/* Sidebar - Fixed on all screen sizes */}
+      <div className="fixed top-0 left-0 h-full z-40">
         <Sidebar />
       </div>
       
       {/* Main Content Area */}
-      <div className="flex-1 flex flex-col min-h-screen ml-16">
-        {/* Fixed Header */}
-        <div className="fixed top-0 right-0 left-16 z-40 bg-white border-b border-gray-200">
-          <Header />
-        </div>
+      <div className="flex-1 flex flex-col ml-0 md:ml-16 lg:ml-64">
+        {/* Header - Fixed at top */}
+        <header className="fixed top-0 right-0 left-0 md:left-16 lg:left-64 h-16 bg-white border-b border-gray-200 z-30 flex items-center px-4">
+          <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <Header />
+          </div>
+        </header>
         
-        {/* Scrollable Content */}
-        <main className="flex-1 pt-16 pb-8 overflow-y-auto bg-gray-50">
-          <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="bg-white rounded-xl shadow-sm p-6 mb-8 mt-6">
-              <h1 className="text-2xl font-semibold text-gray-900">
-                {document.title || 'AI Startup Analyst'}
-              </h1>
-              <p className="mt-1 text-sm text-gray-500">
-                Comprehensive startup evaluation and analysis
-              </p>
-            </div>
+        {/* Main Content - Padded to account for header and sidebar */}
+        <main className="flex-1 pt-20 pb-8 px-4 sm:px-6 lg:px-8 overflow-y-auto">
+          <div className="max-w-7xl mx-auto">
             <div className="space-y-6">
               <Outlet />
             </div>
@@ -46,7 +40,7 @@ const DashboardLayout: React.FC = () => {
         
         {/* Footer */}
         <footer className="bg-white border-t border-gray-200 py-4">
-          <div className="container mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <p className="text-center text-sm text-gray-500">
               © {new Date().getFullYear()} AI Startup Analyst. All rights reserved.
             </p>

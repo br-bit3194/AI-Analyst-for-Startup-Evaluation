@@ -15,10 +15,15 @@ import {
 import { Tooltip } from 'antd';
 import StartalyticaIcon from '../../startalytica_icon.jpeg';
 
+// Extend the icon component props to include className
+interface IconProps extends React.SVGProps<SVGSVGElement> {
+  className?: string;
+}
+
 interface NavItem {
   name: string;
   path: string;
-  icon: React.ReactElement;
+  icon: React.ReactElement<IconProps>;
   active: boolean;
   tooltip: string;
 }
@@ -72,19 +77,16 @@ const Sidebar: React.FC<SidebarProps> = ({ children }) => {
   ];
 
   return (
-    <div className="flex h-screen">
+    <>
       {/* Mobile/Compact Sidebar */}
-      <div className="md:hidden w-16 h-screen bg-white border-r border-gray-200 flex flex-col flex-shrink-0 fixed">
+      <div className="md:hidden h-screen w-16 bg-white border-r border-gray-200 flex flex-col fixed top-0 left-0 z-40">
         {/* Logo */}
         <div className="h-16 flex items-center justify-center border-b border-gray-200 p-2">
           <img 
             src={StartalyticaIcon} 
             alt="Startalytica Logo" 
-            className="h-10 w-auto object-contain"
+            className="h-8 w-8 object-contain"
           />
-          <span className="text-xl font-bold text-gray-800 ml-2 whitespace-nowrap overflow-hidden">
-            Startalytica
-          </span>
         </div>
         
         {/* Main Navigation */}
@@ -100,8 +102,9 @@ const Sidebar: React.FC<SidebarProps> = ({ children }) => {
                       : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
                   }`}
                 >
-                  {React.cloneElement(item.icon, {
-                    className: `text-xl ${item.active ? 'text-purple-600' : 'text-gray-500'}`
+                  {React.cloneElement(item.icon as React.ReactElement<any>, {
+                    className: `text-xl ${item.active ? 'text-purple-600' : 'text-gray-500'}`,
+                    key: item.path
                   })}
                 </Link>
               </Tooltip>
@@ -122,8 +125,9 @@ const Sidebar: React.FC<SidebarProps> = ({ children }) => {
                       : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
                   }`}
                 >
-                  {React.cloneElement(item.icon, {
-                    className: `text-xl ${item.active ? 'text-purple-600' : 'text-gray-500'}`
+                  {React.cloneElement(item.icon as React.ReactElement<any>, {
+                    className: `text-xl ${item.active ? 'text-purple-600' : 'text-gray-500'}`,
+                    key: item.path
                   })}
                 </Link>
               </Tooltip>
@@ -133,100 +137,90 @@ const Sidebar: React.FC<SidebarProps> = ({ children }) => {
       </div>
 
       {/* Desktop/Expanded Sidebar */}
-      <div className="hidden md:flex md:flex-shrink-0 w-64 h-screen fixed">
-        <div className="flex flex-col w-64 h-full bg-white border-r border-gray-100 shadow-sm">
-          {/* Logo */}
-          <div className="flex items-center justify-center h-20 px-6 border-b border-gray-100">
-            <div className="flex items-center">
-              <img 
-                src={StartalyticaIcon} 
-                alt="Startalytica Logo" 
-                className="h-10 w-auto object-contain"
-              />
-              <span className="ml-3 text-xl font-bold text-gray-800 whitespace-nowrap">
-                Startalytica
-              </span>
-            </div>
+      <div className="hidden md:flex flex-col h-screen w-16 lg:w-64 bg-white border-r border-gray-200 fixed top-0 left-0 z-40 transition-all duration-300 ease-in-out">
+        {/* Logo */}
+        <div className="flex items-center justify-center h-20 px-6 border-b border-gray-100">
+          <div className="flex items-center">
+            <img 
+              src={StartalyticaIcon} 
+              alt="Startalytica Logo" 
+              className="h-10 w-auto object-contain"
+            />
+            <span className="ml-3 text-xl font-bold text-gray-800 whitespace-nowrap lg:block hidden">
+              Startalytica
+            </span>
+          </div>
+        </div>
+
+        {/* Navigation */}
+        <div className="flex-1 overflow-y-auto py-4">
+          <div className="px-3 space-y-1">
+            <h3 className="px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2 hidden lg:block">
+              Main
+            </h3>
+            {navItems.map((item) => (
+              <Link
+                key={item.path}
+                to={item.path}
+                className={`flex items-center px-4 py-2.5 text-sm font-medium rounded-lg mx-2 transition-all ${
+                  item.active
+                    ? 'bg-indigo-50 text-indigo-700 font-semibold'
+                    : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                }`}
+              >
+                <span className={`${item.active ? 'text-indigo-600' : 'text-gray-400'}`}>
+                  {React.cloneElement(item.icon as React.ReactElement<any>, { className: 'text-lg' })}
+                </span>
+                <span className="ml-3 lg:block hidden">
+                  {item.name}
+                </span>
+                {item.active && (
+                  <span className="ml-auto h-2 w-2 rounded-full bg-indigo-600 hidden lg:block"></span>
+                )}
+              </Link>
+            ))}
           </div>
 
-          {/* Navigation */}
-          <div className="flex-1 overflow-y-auto py-4">
-            <div className="px-3 space-y-1">
-              <h3 className="px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
-                Main
-              </h3>
-              {navItems.map((item) => (
-                <Link
-                  key={item.path}
-                  to={item.path}
-                  className={`flex items-center px-4 py-2.5 text-sm font-medium rounded-lg mx-2 transition-all ${
-                    item.active
-                      ? 'bg-indigo-50 text-indigo-700 font-semibold'
-                      : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-                  }`}
-                >
-                  <span className={`mr-3 ${item.active ? 'text-indigo-600' : 'text-gray-400'}`}>
-                    {React.cloneElement(item.icon, { className: 'text-lg' })}
-                  </span>
+          {/* Bottom Navigation - Desktop */}
+          <div className="px-3 mt-6 pt-4 border-t border-gray-100">
+            <h3 className="px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2 hidden lg:block">
+              Account
+            </h3>
+            {bottomItems.map((item) => (
+              <Link
+                key={item.path}
+                to={item.path}
+                className={`flex items-center px-4 py-2.5 text-sm font-medium rounded-lg mx-2 transition-all ${
+                  item.active
+                    ? 'bg-indigo-50 text-indigo-700 font-semibold'
+                    : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                }`}
+              >
+                <span className={`${item.active ? 'text-indigo-600' : 'text-gray-400'}`}>
+                  {React.cloneElement(item.icon as React.ReactElement<any>, { className: 'text-lg' })}
+                </span>
+                <span className="ml-3 lg:block hidden">
                   {item.name}
-                  {item.active && (
-                    <span className="ml-auto h-2 w-2 rounded-full bg-indigo-600"></span>
-                  )}
-                </Link>
-              ))}
-            </div>
+                </span>
+              </Link>
+            ))}
 
-            {/* Bottom Navigation - Desktop */}
-            <div className="px-3 mt-6 pt-4 border-t border-gray-100">
-              <h3 className="px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
-                Account
-              </h3>
-              {bottomItems.map((item) => (
-                <Link
-                  key={item.path}
-                  to={item.path}
-                  className={`flex items-center px-4 py-2.5 text-sm font-medium rounded-lg mx-2 transition-all ${
-                    item.active
-                      ? 'bg-indigo-50 text-indigo-700 font-semibold'
-                      : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-                  }`}
-                >
-                  <span className={`mr-3 ${item.active ? 'text-indigo-600' : 'text-gray-400'}`}>
-                    {React.cloneElement(item.icon, { className: 'text-lg' })}
-                  </span>
-                  {item.name}
-                </Link>
-              ))}
-
-              {/* User Profile */}
-              <div className="p-4 mt-6 border-t border-gray-100">
-                <div className="flex items-center justify-between px-2">
-                  <div>
-                    <p className="text-sm font-medium text-gray-900">Investor Account</p>
-                    <p className="text-xs text-gray-500">Professional Plan</p>
-                  </div>
-                  <div className="h-9 w-9 rounded-full bg-gradient-to-r from-indigo-500 to-blue-600 flex items-center justify-center text-white font-medium text-sm">
-                    {typeof window !== 'undefined' ? localStorage.getItem('userInitials') || 'IA' : 'IA'}
-                  </div>
+            {/* User Profile */}
+            <div className="p-4 mt-6 border-t border-gray-100">
+              <div className="flex items-center justify-between px-2">
+                <div className="hidden lg:block">
+                  <p className="text-sm font-medium text-gray-900">Investor Account</p>
+                  <p className="text-xs text-gray-500">Professional Plan</p>
+                </div>
+                <div className="h-9 w-9 rounded-full bg-gradient-to-r from-indigo-500 to-blue-600 flex items-center justify-center text-white font-medium text-sm">
+                  {typeof window !== 'undefined' ? localStorage.getItem('userInitials') || 'IA' : 'IA'}
                 </div>
               </div>
             </div>
           </div>
         </div>
       </div>
-
-      {/* Main Content Area - Add padding to account for fixed sidebar */}
-      <main className="flex-1 md:ml-64 ml-16 overflow-auto">
-        {React.Children.map(children, (child) => 
-          React.isValidElement(child) 
-            ? React.cloneElement(child, { 
-                className: `p-6 ${child.props.className || ''}`,
-                ...child.props
-              } as React.HTMLAttributes<HTMLElement>)
-            : child
-        )}
-      </main>
-    </div>
+    </> 
   );
 };
 
