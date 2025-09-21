@@ -1,13 +1,13 @@
 import React, { useState, useRef, ChangeEvent } from 'react';
 
 interface DealInputProps {
-  onAnalyze: (pitch: string) => void;
+  onAnalyze: (pitch: string, websiteUrl?: string) => void;
   isLoading: boolean;
   disabled: boolean;
 }
 
 interface DealInputProps {
-  onAnalyze: (pitch: string) => void;
+  onAnalyze: (pitch: string, websiteUrl?: string) => void;
   isLoading: boolean;
   disabled: boolean;
 }
@@ -17,17 +17,42 @@ const DealInput: React.FC<DealInputProps> = ({ onAnalyze, isLoading, disabled })
   const [isDragging, setIsDragging] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [websiteUrl, setWebsiteUrl] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (pitch.trim()) {
-      onAnalyze(pitch);
+      onAnalyze(pitch, websiteUrl);
     }
   };
 
-  const samplePitch = `Company: ChronoSafe AI
-Pitch: We're building a decentralized platform using blockchain and AI to create immutable, verifiable digital archives for historical and legal documents. Our AI can instantly verify authenticity and provide contextual search, solving the multi-billion dollar problem of document fraud and preservation. The team consists of two ex-Google AI engineers and a blockchain expert from MIT. We're seeking a $2M seed round to scale our MVP.`;
+  const samplePitch = `### **Startup Name: EcoBox**
+
+**Tagline:** *Sustainability, Delivered.*
+
+**Pitch:**
+
+At EcoBox, we're revolutionizing the way people shop for eco-friendly products by offering a one-stop online marketplace for sustainable and zero-waste essentials. We connect conscious consumers with top-rated, eco-conscious brands that provide everything from biodegradable cleaning products to reusable home goods—all in one place.
+
+**The Problem:**
+Today, consumers want to reduce their environmental impact, but it’s difficult to find reliable, sustainable products. Current options are often scattered across multiple platforms, and it’s time-consuming to vet the brands for transparency, ethical sourcing, and environmental responsibility.
+
+**The Solution:**
+EcoBox solves this by curating a premium selection of eco-friendly products, from personal care to home essentials. Every product on our platform is vetted for sustainability, ethical production, and eco-conscious packaging. We also offer a subscription service that helps customers maintain a zero-waste lifestyle with regular deliveries of essentials, all packaged in 100% recyclable or compostable materials.
+
+**Market Opportunity:**
+The global market for sustainable goods is expected to reach \$150 billion by 2025, and demand for eco-friendly products is growing exponentially. Consumers are increasingly aligning their values with their purchasing decisions, and EcoBox is poised to tap into this rapidly expanding trend.
+
+**Revenue Model:**
+We operate on a commission-based model, earning a percentage of each sale from the brands we partner with. Additionally, our subscription service provides steady, recurring revenue. By offering exclusive member discounts, green rewards, and early access to new products, we keep customers engaged and loyal.
+
+**Why Now:**
+With growing awareness around climate change, pollution, and waste, consumers are looking for solutions to reduce their ecological footprint. EcoBox’s online platform empowers them to make conscious, impactful purchasing decisions with ease, all from the comfort of their home.
+
+**Team:**
+EcoBox was founded by a group of passionate environmentalists, e-commerce experts, and sustainability advocates who believe in the power of consumer choice to drive positive change. We’re on a mission to make sustainability accessible, affordable, and convenient for everyone.
+`;
 
   const handleUseSample = () => {
     setPitch(samplePitch);
@@ -94,7 +119,7 @@ Pitch: We're building a decentralized platform using blockchain and AI to create
       
       // Auto-submit after a short delay to show the progress
       setTimeout(() => {
-        onAnalyze(text);
+        onAnalyze(text, websiteUrl);
         setIsUploading(false);
       }, 500);
       
@@ -156,6 +181,44 @@ Pitch: We're building a decentralized platform using blockchain and AI to create
           Enter Startup Pitch or Description
         </label>
         
+        {/* Website URL Input */}
+        <div className="mb-4">
+          <label htmlFor="website-url" className="block text-sm font-medium text-slate-300 mb-1">
+            Company Website (Optional)
+          </label>
+          <div className="relative">
+            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <svg className="h-5 w-5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+              </svg>
+            </div>
+            <input
+              type="url"
+              id="website-url"
+              value={websiteUrl}
+              onChange={(e) => setWebsiteUrl(e.target.value)}
+              placeholder="https://example.com"
+              disabled={isLoading || isUploading || disabled}
+              className="w-full pl-10 pr-4 py-2.5 bg-slate-800 border border-slate-700 rounded-lg text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
+            />
+            {websiteUrl && (
+              <button
+                type="button"
+                onClick={() => setWebsiteUrl('')}
+                className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                title="Clear URL"
+              >
+                <svg className="h-4 w-4 text-slate-400 hover:text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            )}
+          </div>
+          <p className="mt-1 text-xs text-slate-500">
+            Add the company website to enhance analysis with additional product and vision information
+          </p>
+        </div>
+
         {/* File Upload Area */}
         <div 
           className={`mt-2 mb-4 p-6 border-2 border-dashed rounded-lg text-center cursor-pointer transition-colors ${
@@ -193,9 +256,6 @@ Pitch: We're building a decentralized platform using blockchain and AI to create
                 style={{ width: `${uploadProgress}%` }}
               ></div>
             </div>
-            <p className="text-xs text-slate-400 mt-1 text-right">
-              Uploading... {uploadProgress}%
-            </p>
           </div>
         )}
 

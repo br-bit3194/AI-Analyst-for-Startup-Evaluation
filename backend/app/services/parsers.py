@@ -50,7 +50,7 @@ def parse_txt(path: str) -> str:
 
 def parse_image(path: str) -> str:
     # Prefer Cloud Vision if enabled and available
-    if settings.use_vision and vision is not None:
+    if settings.USE_VISION and vision is not None:
         try:
             client = vision.ImageAnnotatorClient()
             with open(path, "rb") as image_file:

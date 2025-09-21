@@ -8,22 +8,22 @@ except Exception:
     gcs = None
 
 def save_file_local(file_bytes: bytes, filename: str) -> str:
-    os.makedirs(settings.storage_path, exist_ok=True)
-    path = os.path.join(settings.storage_path, filename)
+    os.makedirs(settings.STORAGE_PATH, exist_ok=True)
+    path = os.path.join(settings.STORAGE_PATH, filename)
     with open(path, "wb") as f:
         f.write(file_bytes)
     return path
 
 def upload_to_gcs(local_path: str, filename: str) -> Optional[str]:
-    if not settings.use_cloud or not settings.gcloud_bucket:
+    if not settings.USE_CLOUD or not settings.GCLOUD_BUCKET:
         return None
     if gcs is None:
         return None
     client = gcs.Client()
-    bucket = client.bucket(settings.gcloud_bucket)
+    bucket = client.bucket(settings.GCLOUD_BUCKET)
     blob = bucket.blob(filename)
     blob.upload_from_filename(local_path)
-    return f"gs://{settings.gcloud_bucket}/{filename}"
+    return f"gs://{settings.GCLOUD_BUCKET}/{filename}"
 
 def save_file(file_bytes: bytes, filename: str) -> Tuple[str, str]:
     """
@@ -33,7 +33,7 @@ def save_file(file_bytes: bytes, filename: str) -> Tuple[str, str]:
     """
     local_path = save_file_local(file_bytes, filename)
     storage_path = local_path
-    if settings.use_cloud:
+    if settings.USE_CLOUD:
         gcs_uri = upload_to_gcs(local_path, filename)
         if gcs_uri:
             storage_path = gcs_uri

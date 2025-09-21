@@ -1,14 +1,35 @@
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Depends, status
 from pydantic import BaseModel, Field
 from typing import Optional, Dict, Any, List
 from datetime import datetime
-import json
 import re
-from app.services.llm_client import call_llm
+import json
 import logging
+import asyncio
+from functools import lru_cache
+
+# Import ADK-based agent system
+from app.services.agents import (
+    ADKAgentManager,
+    ADKAgent,
+    create_agent_manager,
+    create_financial_analyst,
+    create_market_analyst,
+    create_technical_analyst
+)
+from app.config import settings
 
 router = APIRouter(prefix="/deal-analysis", tags=["deal-analysis"])
 logger = logging.getLogger(__name__)
+
+@lru_cache(maxsize=1)
+def get_agent_manager() -> ADKAgentManager:
+    """Get a cached instance of the agent manager."""
+    logger.info("Initializing ADK agent manager")
+    return create_agent_manager(
+        project_id=settings.GOOGLE_CLOUD_PROJECT,
+        location=getattr(settings, "GOOGLE_CLOUD_LOCATION", "us-central1")
+    )
 
 def extract_json_from_response(response: str) -> dict:
     """Extract JSON from AI response, handling various formats."""
@@ -103,13 +124,43 @@ class DealAnalysisRequest(BaseModel):
     pitch: str = Field(..., description="The startup pitch to analyze")
     include_benchmarks: bool = Field(False, description="Whether to include benchmark comparisons")
 
+class InvestmentMetrics(BaseModel):
+    market_size: Dict[str, str]
+    revenue_model: str
+    growth_rate: str
+    team_strength: str
+    competitive_advantage: str
+    unit_economics: Optional[Dict[str, str]] = None
+    funding_ask: Optional[Dict[str, Any]] = None
+    
+class InvestmentRisk(BaseModel):
+    risk: str
+    probability: str  # High/Medium/Low
+    impact: str       # High/Medium/Low
+    mitigation: str
+    
+class InvestmentRecommendation(BaseModel):
+    type: str  # product/market/team/financial
+    action: str
+    priority: str  # High/Medium/Low
+    timeline: str
+    expected_outcome: str
+
 class DealAnalysisResponse(BaseModel):
-    verdict: str
-    confidence: float
+    verdict: str  # STRONG_INVEST/INVEST/CONSIDER/HOLD/PASS
+    confidence_score: float  # 0-100
+    investment_thesis: str
+    valuation_assessment: Dict[str, Any]
     key_metrics: Dict[str, Any]
-    risks: List[str]
+    strengths: List[str]
+    weaknesses: List[str]
     opportunities: List[str]
-    recommendations: List[str]
+    threats: List[str]
+    investment_risks: List[InvestmentRisk]
+    recommendations: List[InvestmentRecommendation]
+    next_steps: List[str]
+    monitoring_metrics: List[str]
+    committee_questions: List[str]
     timestamp: datetime = Field(default_factory=datetime.utcnow)
 
 class CommitteeMember(BaseModel):
@@ -131,72 +182,144 @@ class InvestmentCommitteeResponse(BaseModel):
     key_debate_points: List[str]
     timestamp: datetime = Field(default_factory=datetime.utcnow)
 
-DEAL_ANALYSIS_SYSTEM_PROMPT = """You are a senior venture capital partner with 15+ years of experience at top-tier firms like Sequoia Capital, Andreessen Horowitz, and Benchmark. You have evaluated thousands of startup pitches and made investment decisions ranging from $500K seed rounds to $50M+ Series B rounds.
+DEAL_ANALYSIS_SYSTEM_PROMPT = """You are a senior venture capital partner with 20+ years of experience at top-tier firms like Sequoia Capital, Andreessen Horowitz, and Benchmark. You specialize in early to growth-stage technology investments and have led investments in multiple unicorn companies.
 
-Your expertise includes:
-- Deep market analysis and TAM/SAM validation
-- Team assessment and founder-market fit evaluation
-- Competitive landscape analysis
-- Financial modeling and unit economics
-- Risk assessment and mitigation strategies
-- Exit potential and strategic value
+INVESTMENT THESIS FRAMEWORK:
 
-You are now evaluating a startup pitch for potential investment. Provide a comprehensive, professional investment analysis.
+1. MARKET ANALYSIS (25% weight)
+- Total Addressable Market (TAM): Quantify with supporting data
+- Market Growth Rate: Historical and projected CAGR
+- Competitive Landscape: Market share distribution and competitive moats
+- Market Trends: Key drivers and potential disruptors
+- Customer Pain Points: How well does the solution address real needs?
 
-CRITICAL REQUIREMENTS:
-1. Respond with ONLY valid JSON - no explanatory text, no markdown, no code blocks
-2. Base your analysis on the actual pitch content provided
-3. Provide specific, actionable reasons for your verdict
-4. Include confidence level based on available information
-5. Consider both quantitative and qualitative factors
+2. TEAM ASSESSMENT (25% weight)
+- Founder/CEO: Track record, domain expertise, leadership qualities
+- Technical Team: Relevant experience and technical depth
+- Advisory Board: Industry connections and strategic value
+- Hiring Strategy: Ability to attract top talent
+- Cultural Fit: Alignment with investment thesis
 
-ANALYSIS FRAMEWORK:
-1. **Market Opportunity**: Size, growth potential, competitive dynamics
-2. **Team Quality**: Founder capabilities, team composition, execution track record
-3. **Product Differentiation**: Unique value proposition, technical moats
-4. **Business Model**: Revenue model, unit economics, scalability
-5. **Competitive Position**: Market share potential, barriers to entry
-6. **Risk Factors**: Technical, market, execution, and regulatory risks
-7. **Upside Potential**: Growth trajectory, exit opportunities
+3. PRODUCT & TECHNOLOGY (20% weight)
+- Innovation Level: Technological differentiation
+- Product-Market Fit: Evidence of strong demand
+- Technical Scalability: Architecture and infrastructure
+- IP Portfolio: Patents, trademarks, trade secrets
+- Development Roadmap: Realistic and ambitious
 
-VERDICT_OPTIONS:
-- "STRONG_INVEST": Exceptional opportunity with high confidence (80-100%)
-- "CONSIDER": Promising with moderate confidence (50-79%)
-- "HIGH_RISK": Significant concerns but potential exists (30-49%)
-- "PASS": Major red flags outweigh potential benefits (0-29%)
+4. BUSINESS MODEL (15% weight)
+- Revenue Model: Clear path to monetization
+- Unit Economics: CAC, LTV, payback period
+- Sales Cycle: Length and predictability
+- Customer Acquisition: Channels and scalability
+- Margins: Current and projected
 
-For each verdict, provide 3-5 specific, professional supporting points that justify your confidence level. Each point should:
-- Be specific and actionable
-- Reference particular aspects of the pitch
-- Explain how it impacts the investment decision
-- Indicate the relative importance to your confidence
-- Be written as clear, professional bullet points
+5. TRACTION & METRICS (15% weight)
+- Revenue Growth: MoM/QoQ trends
+- Customer Acquisition: Growth and retention metrics
+- Engagement: Usage metrics and stickiness
+- Churn: Customer and revenue churn rates
+- Network Effects: Evidence of increasing returns
 
-CONFIDENCE LEVELS:
-- 80-100%: High confidence - multiple strong indicators align
-- 60-79%: Medium confidence - promising with some concerns
-- 40-59%: Low confidence - significant issues present
-- 0-39%: Very low confidence - major red flags
+6. RISK ASSESSMENT (10% weight)
+- Market Risks: Competition, market shifts
+- Execution Risks: Team, technology, operations
+- Financial Risks: Burn rate, runway, funding needs
+- Regulatory Risks: Compliance requirements
+- Technical Risks: Scalability, security, tech debt
 
-Base your confidence score on the strength and consistency of supporting evidence.
+VERDICT FRAMEWORK:
 
-JSON FORMAT:
+1. INVESTMENT RECOMMENDATION (Select one):
+- "STRONG_INVEST" (80-100%): Exceptional opportunity with clear market leadership potential
+- "INVEST" (70-79%): Strong opportunity with manageable risks
+- "CONSIDER" (50-69%): Potential with significant risks or uncertainties
+- "HOLD" (30-49%): Monitor for improvements in key metrics
+- "PASS" (0-29%): Does not meet investment criteria
+
+2. INVESTMENT THESIS:
+- Clear, concise statement on why this is a good/bad investment
+- Key value drivers and differentiators
+- Potential exit scenarios and timeline
+
+3. DUE DILIGENCE CHECKLIST:
+- Critical questions that need answering
+- Key risks that require mitigation
+- Must-have metrics for next funding round
+
+4. TERM SHEET RECOMMENDATIONS:
+- Valuation range
+- Key terms to include (liquidation preferences, board seats, etc.)
+- Milestone-based funding recommendations
+
+5. VALUE-ADD OPPORTUNITIES:
+- Strategic partnerships
+- Key hires needed
+- Operational improvements
+
+JSON RESPONSE FORMAT:
 {
-    "verdict": "INVEST/CONSIDER/PASS",
-    "confidence": 0-100,
-    "key_metrics": {
-        "market_size": "Estimated TAM/SAM with reasoning",
-        "revenue_model": "Revenue streams and viability assessment",
-        "growth_rate": "Expected growth trajectory with assumptions",
-        "team_strength": "Team quality and execution capability assessment",
-        "competitive_advantage": "Moats and differentiation factors"
+    "verdict": "STRONG_INVEST/INVEST/CONSIDER/HOLD/PASS",
+    "confidence_score": 0-100,
+    "investment_thesis": "2-3 sentence summary of the investment opportunity",
+    "valuation_assessment": {
+        "pre_money_valuation_range": "$X-$Y million",
+        "valuation_metrics": ["Metric 1", "Metric 2"],
+        "comparable_companies": ["Peer 1", "Peer 2"]
     },
-    "risks": ["Specific risk factor 1", "Specific risk factor 2", "..."],
-    "opportunities": ["Growth opportunity 1", "Strategic opportunity 2", "..."],
-    "recommendations": ["Actionable next step 1", "Validation step 2", "..."]
+    "key_metrics": {
+        "market_metrics": {
+            "tam": "$X billion",
+            "sam": "$Y million",
+            "growth_rate": "Z% CAGR",
+            "market_trends": ["Trend 1", "Trend 2"]
+        },
+        "business_metrics": {
+            "revenue": "$X (TTM)",
+            "growth_rate": "Y% MoM",
+            "gross_margin": "Z%",
+            "cac_ltv_ratio": "X:Y",
+            "burn_rate": "$X/month"
+        },
+        "product_metrics": {
+            "active_users": "X (MAU/DAU)",
+            "engagement_rate": "X%",
+            "nps_score": "X",
+            "churn_rate": "X%"
+        }
+    },
+    "strengths": ["Strength 1 with impact", "Strength 2 with impact"],
+    "weaknesses": ["Weakness 1 with mitigation", "Weakness 2 with mitigation"],
+    "opportunities": ["Opportunity 1 with potential impact", "Opportunity 2 with potential impact"],
+    "threats": ["Threat 1 with probability", "Threat 2 with probability"],
+    "investment_risks": [
+        {
+            "risk": "Risk description",
+            "probability": "High/Medium/Low",
+            "impact": "High/Medium/Low",
+            "mitigation": "Mitigation strategy"
+        }
+    ],
+    "recommendations": [
+        {
+            "type": "investment/partnership/hiring/product",
+            "action": "Specific action item",
+            "priority": "High/Medium/Low",
+            "timeline": "Timeframe",
+            "expected_outcome": "Expected result"
+        }
+    ],
+    "next_steps": ["Immediate action 1", "Short-term action 2", "Long-term action 3"],
+    "monitoring_metrics": ["Metric 1 to track", "Metric 2 to track"],
+    "committee_questions": ["Key question 1", "Key question 2"]
 }
 
-IMPORTANT: Ensure all required fields are present and that confidence is a number between 0-100."""
+IMPORTANT:
+1. Be brutally honest in your assessment
+2. Back all claims with specific evidence from the pitch
+3. Provide actionable insights, not just observations
+4. Quantify your analysis where possible
+5. Consider both short-term execution and long-term potential"""
 
 # Investment Committee System Prompts
 COMMITTEE_MEMBERS = {
@@ -338,150 +461,207 @@ JSON Format:
 }
 
 @router.post("/analyze", response_model=DealAnalysisResponse)
-async def analyze_deal(deal_request: DealAnalysisRequest):
+async def analyze_deal(
+    deal_request: DealAnalysisRequest,
+    manager: ADKAgentManager = Depends(get_agent_manager)
+):
     """
-    Analyze a startup pitch and provide a comprehensive investment analysis.
+    Analyze a startup pitch using the ADK-based agent system.
     """
     try:
-        # Call the LLM with the pitch and system prompt
-        response = await call_llm(
-            system_prompt=DEAL_ANALYSIS_SYSTEM_PROMPT,
-            user_prompt=deal_request.pitch,
-            model="gemini-2.5-flash"
+        # Prepare context for the analysis
+        context = {
+            "pitch": deal_request.pitch,
+            "include_benchmarks": str(deal_request.include_benchmarks),
+            "analysis_type": "comprehensive",
+            "timestamp": datetime.utcnow().isoformat()
+        }
+
+        # Get specialized analyses
+        financial_analyst = create_financial_analyst(
+            project_id=settings.GOOGLE_CLOUD_PROJECT,
+            location=getattr(settings, "GOOGLE_CLOUD_LOCATION", "us-central1")
         )
         
-        # Parse the response
-        try:
-            # Clean the response - remove markdown code blocks and extra whitespace
-            cleaned_response = response.strip()
+        market_analyst = create_market_analyst(
+            project_id=settings.GOOGLE_CLOUD_PROJECT,
+            location=getattr(settings, "GOOGLE_CLOUD_LOCATION", "us-central1")
+        )
 
-            # Remove markdown code blocks if present
-            if cleaned_response.startswith('```json'):
-                cleaned_response = cleaned_response[7:]
-            elif cleaned_response.startswith('```'):
-                cleaned_response = cleaned_response[3:]
+        # Run analyses in parallel
+        financial_task = asyncio.create_task(
+            financial_analyst.process_message("Analyze financials and valuation", context)
+        )
+        market_task = asyncio.create_task(
+            market_analyst.process_message("Analyze market opportunity and competition", context)
+        )
 
-            if cleaned_response.endswith('```'):
-                cleaned_response = cleaned_response[:-3]
+        # Wait for all analyses to complete
+        financial_result, market_result = await asyncio.gather(financial_task, market_task)
 
-            # Remove any leading/trailing whitespace and newlines
-            cleaned_response = cleaned_response.strip()
+        # Combine results
+        combined_analysis = {
+            "verdict": "CONSIDER",
+            "confidence_score": 0.75,
+            "investment_thesis": "",
+            "valuation_assessment": {},
+            "key_metrics": {},
+            "strengths": [],
+            "weaknesses": [],
+            "opportunities": [],
+            "threats": [],
+            "investment_risks": [],
+            "recommendations": [],
+            "next_steps": ["Schedule call with founders", "Review detailed financials"],
+            "monitoring_metrics": ["MRR growth", "Customer acquisition cost", "Burn rate"],
+            "committee_questions": []
+        }
 
-            # Try to find JSON in the response (in case there's extra text)
-            json_start = cleaned_response.find('{')
-            json_end = cleaned_response.rfind('}') + 1
+        # Process financial analysis
+        if financial_result.success:
+            try:
+                financial_data = json.loads(financial_result.content) if isinstance(financial_result.content, str) else financial_result.content
+                combined_analysis.update({
+                    "valuation_assessment": financial_data.get("valuation", {}),
+                    "key_metrics": financial_data.get("metrics", {})
+                })
+                if "verdict" in financial_data:
+                    combined_analysis["verdict"] = financial_data["verdict"]
+                if "confidence" in financial_data:
+                    combined_analysis["confidence_score"] = financial_data["confidence"]
+            except Exception as e:
+                logger.error(f"Error processing financial analysis: {str(e)}")
 
-            if json_start != -1 and json_end > json_start:
-                cleaned_response = cleaned_response[json_start:json_end]
+        # Process market analysis
+        if market_result.success:
+            try:
+                market_data = json.loads(market_result.content) if isinstance(market_result.content, str) else market_result.content
+                combined_analysis.update({
+                    "market_analysis": market_data.get("analysis", ""),
+                    "market_size": market_data.get("market_size", {})
+                })
+                # Update verdict based on market analysis if needed
+                if market_data.get("verdict") == "PASS" and combined_analysis["verdict"] != "PASS":
+                    combined_analysis["verdict"] = "HIGH_RISK"
+            except Exception as e:
+                logger.error(f"Error processing market analysis: {str(e)}")
 
-            logger.info(f"Cleaned LLM response: {cleaned_response[:200]}...")  # Log first 200 chars
+        return DealAnalysisResponse(**combined_analysis)
 
-            analysis = json.loads(cleaned_response)
-
-            # Validate the response structure
-            required_fields = ["verdict", "confidence", "key_metrics", "risks", "opportunities", "recommendations"]
-            if not all(field in analysis for field in required_fields):
-                missing_fields = [field for field in required_fields if field not in analysis]
-                logger.error(f"Missing fields in LLM response: {missing_fields}")
-                raise ValueError(f"Invalid response format from LLM. Missing fields: {missing_fields}")
-
-            return DealAnalysisResponse(**analysis)
-
-        except (json.JSONDecodeError, ValueError) as e:
-            logger.error(f"Failed to parse LLM response: {e}")
-            logger.error(f"Raw LLM response: {response}")
-            raise HTTPException(
-                status_code=500,
-                detail="Failed to parse analysis response. Please try again."
-            )
-            
     except Exception as e:
-        logger.error(f"Error in analyze_deal: {str(e)}", exc_info=True)
+        logger.error(f"Error analyzing deal: {str(e)}", exc_info=True)
         raise HTTPException(
-            status_code=500,
-            detail=f"An error occurred while analyzing the pitch: {str(e)}"
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error analyzing deal: {str(e)}"
         )
 
 @router.post("/committee-simulate", response_model=InvestmentCommitteeResponse)
-async def simulate_investment_committee(deal_request: DealAnalysisRequest):
+async def simulate_investment_committee(
+    deal_request: DealAnalysisRequest
+):
     """
-    Simulate an investment committee meeting with multiple AI personas debating a deal.
+    Simulate an investment committee meeting with different perspectives.
     """
     try:
-        # Run all committee members in parallel
-        import asyncio
-
-        async def get_committee_member_analysis(member_id, member_info):
-            try:
-                response = await call_llm(
-                    system_prompt=member_info["system_prompt"],
-                    user_prompt=deal_request.pitch,
-                    model="gemini-2.5-flash"
-                )
-
-                # Enhanced JSON parsing with fallback
-                try:
-                    # Try to extract JSON from the response
-                    analysis_data = extract_json_from_response(response)
-
-                    return CommitteeMember(
-                        name=member_info["name"],
-                        role=member_info["role"],
-                        personality=member_info["personality"],
-                        analysis=analysis_data.get("analysis", "Analysis not available"),
-                        vote=analysis_data.get("vote", "CONSIDER"),
-                        confidence=float(analysis_data.get("confidence", 50.0)),
-                        reasoning=analysis_data.get("reasoning", "Reasoning not available")
-                    )
-                except (json.JSONDecodeError, KeyError, ValueError) as e:
-                    logger.warning(f"Failed to parse response from {member_info['name']}: {e}")
-                    logger.warning(f"Raw response: {response[:500]}...")
-
-                    # Create fallback analysis based on the raw response
-                    fallback_analysis = extract_analysis_from_text(response, member_info["role"])
-
-                    return CommitteeMember(
-                        name=member_info["name"],
-                        role=member_info["role"],
-                        personality=member_info["personality"],
-                        analysis=fallback_analysis["analysis"],
-                        vote=fallback_analysis["vote"],
-                        confidence=fallback_analysis["confidence"],
-                        reasoning=fallback_analysis["reasoning"]
-                    )
-
-            except Exception as e:
-                logger.error(f"Error getting analysis from {member_info['name']}: {e}")
-                return CommitteeMember(
-                    name=member_info["name"],
-                    role=member_info["role"],
-                    personality=member_info["personality"],
-                    analysis="Error during analysis",
-                    vote="CONSIDER",
-                    confidence=0.0,
-                    reasoning=f"Error: {str(e)}"
-                )
-
-        # Get all committee member analyses in parallel
-        tasks = [
-            get_committee_member_analysis(member_id, member_info)
-            for member_id, member_info in COMMITTEE_MEMBERS.items()
+        # Define committee members with different perspectives
+        committee_roles = [
+            {"name": "Sarah Chen", "role": "Partner - Growth Equity", "focus": "Market expansion and scaling"},
+            {"name": "James Wilson", "role": "Partner - Early Stage", "focus": "Product-market fit and team"},
+            {"name": "Dr. Emily Zhang", "role": "Technical Partner", "focus": "Technology and IP assessment"},
+            {"name": "Michael Rodriguez", "role": "Partner - Finance", "focus": "Financial modeling and metrics"},
+            {"name": "Priya Patel", "role": "Partner - Impact", "focus": "ESG and impact potential"}
         ]
 
-        committee_members = await asyncio.gather(*tasks)
+        # Create a temporary agent for each committee member
+        committee_tasks = []
+        for member in committee_roles:
+            # Create a valid agent name by replacing any non-alphanumeric characters with underscores
+            # and ensuring it starts with a letter or underscore
+            safe_name = re.sub(r'[^a-zA-Z0-9_]', '_', member['name'].lower())
+            if not safe_name[0].isalpha() and safe_name[0] != '_':
+                safe_name = f'_{safe_name}'
+                
+            agent = ADKAgent(
+                name=f"committee_{safe_name}",
+                instructions=f"""
+                You are {member['name']}, {member['role']} at a top VC firm.
+                Your focus is on {member['focus']}.
+
+                Analyze the startup pitch and provide:
+                1. A brief analysis from your perspective
+                2. Your vote: STRONG_INVEST/INVEST/CONSIDER/HIGH_RISK/PASS
+                3. Your confidence level (0-1)
+                4. 2-3 key points about the opportunity
+
+                Format your response as JSON with these fields:
+                - analysis: Your analysis
+                - vote: Your vote
+                - confidence: Your confidence level (0-1)
+                - key_points: List of key points
+                """,
+                model="gemini-1.5-pro"
+            )
+            
+            # Create task for this committee member
+            task = asyncio.create_task(
+                agent.process_message(
+                    f"Startup Pitch:\n{deal_request.pitch}\n\n"
+                    f"Please provide your analysis and vote as {member['name']}."
+                )
+            )
+            committee_tasks.append((member, task))
+        
+        # Gather all responses
+        committee_members = []
+        for member, task in committee_tasks:
+            try:
+                response = await task
+                if response.success:
+                    try:
+                        analysis = json.loads(response.content) if isinstance(response.content, str) else response.content
+                        committee_members.append({
+                            "name": member["name"],
+                            "role": member["role"],
+                            "analysis": analysis.get("analysis", ""),
+                            "vote": analysis.get("vote", "Abstain"),
+                            "confidence": float(analysis.get("confidence", 0.5)),
+                            "key_points": analysis.get("key_points", [])
+                        })
+                    except Exception as e:
+                        logger.error(f"Error parsing committee member response: {str(e)}")
+                        committee_members.append({
+                            "name": member["name"],
+                            "role": member["role"],
+                            "analysis": "Error in analysis",
+                            "vote": "Abstain",
+                            "confidence": 0.0,
+                            "key_points": []
+                        })
+            except Exception as e:
+                logger.error(f"Error getting committee member response: {str(e)}")
+                committee_members.append({
+                    "name": member["name"],
+                    "role": member["role"],
+                    "analysis": "Unable to provide analysis",
+                    "vote": "Abstain",
+                    "confidence": 0.0,
+                    "key_points": []
+                })
 
         # Calculate consensus
-        votes = [member.vote for member in committee_members]
-        vote_counts = {"STRONG_INVEST": votes.count("STRONG_INVEST"), "CONSIDER": votes.count("CONSIDER"), "HIGH_RISK": votes.count("HIGH_RISK"), "PASS": votes.count("PASS")}
+        votes = [m.get("vote", "Abstain") for m in committee_members]
+        vote_options = ["STRONG_INVEST", "INVEST", "CONSIDER", "HIGH_RISK", "PASS", "Abstain"]
+        vote_counts = {vote: votes.count(vote) for vote in vote_options}
 
-        # Determine majority vote
-        majority_vote = max(vote_counts, key=vote_counts.get)
+        # Determine majority vote (excluding abstentions)
+        voting_votes = {k: v for k, v in vote_counts.items() if k != "Abstain"}
+        majority_vote = max(voting_votes, key=voting_votes.get) if voting_votes else "Abstain"
 
-        # Calculate consensus score (0-1, where 1 = unanimous)
-        total_votes = len(votes)
-        consensus_score = vote_counts[majority_vote] / total_votes if total_votes > 0 else 0
+        # Calculate consensus score (0-1, where 1 = unanimous, excluding abstentions)
+        total_voting_members = sum(voting_votes.values())
+        consensus_score = voting_votes[majority_vote] / total_voting_members if total_voting_members > 0 else 0
 
-        # Determine final verdict based on majority and consensus
+        # Determine final verdict
         if consensus_score >= 0.75:  # Strong consensus
             final_verdict = majority_vote
         elif majority_vote == "PASS" and consensus_score >= 0.5:
@@ -489,64 +669,22 @@ async def simulate_investment_committee(deal_request: DealAnalysisRequest):
         else:
             final_verdict = "CONSIDER"  # Need more discussion
 
-        # Find dissenting opinions
-        dissenting_opinions = [
-            f"{member.name} ({member.role}): {member.reasoning[:100]}..."
-            for member in committee_members
-            if member.vote != majority_vote
-        ]
-
-        # Extract key debate points with better formatting
-        key_debate_points = []
-
-        # Add market vs risk perspective debate
-        invest_votes = [m for m in committee_members if m.vote in ["STRONG_INVEST", "CONSIDER"]]
-        pass_votes = [m for m in committee_members if m.vote in ["HIGH_RISK", "PASS"]]
-
-        if invest_votes and pass_votes:
-            key_debate_points.append("💰 Market opportunity vs ⚠️ execution risks - committee split on growth potential vs practical challenges")
-        elif len(set(votes)) > 1:
-            key_debate_points.append("🤝 Mixed committee opinions require further due diligence and validation")
-
-        # Add specific concerns if any member has low confidence
-        low_confidence_members = [m for m in committee_members if m.confidence < 40]
-        if low_confidence_members:
-            concerns = [f"⚠️ {m.name}: {m.analysis[:80]}..." for m in low_confidence_members]
-            key_debate_points.extend(concerns)
-
-        # Add high confidence analysis points
-        high_confidence_members = [m for m in committee_members if m.confidence >= 70]
-        if high_confidence_members:
-            strengths = [f"✅ {m.name}: {m.analysis[:80]}..." for m in high_confidence_members[:2]]
-            key_debate_points.extend(strengths)
-
-        # Create a comprehensive summary
-        summary_reasons = []
-        if final_verdict == "STRONG_INVEST":
-            summary_reasons.append("🚀 Strong consensus on exceptional market opportunity with multiple positive indicators")
-        elif final_verdict == "CONSIDER":
-            summary_reasons.append("⚖️ Balanced view with potential but requiring additional validation and due diligence")
-        elif final_verdict == "HIGH_RISK":
-            summary_reasons.append("⚠️ Significant concerns identified but committee sees some potential worth exploring")
-        else:  # PASS
-            summary_reasons.append("❌ Major red flags outweigh potential benefits - not recommended for investment")
-
-        # Add confidence explanation
-        if consensus_score >= 0.75:
-            summary_reasons.append(f"🎯 High confidence ({consensus_score*100:.0f}%) based on strong committee alignment")
-        elif consensus_score >= 0.5:
-            summary_reasons.append(f"⚖️ Moderate confidence ({consensus_score*100:.0f}%) with some dissenting views")
-        else:
-            summary_reasons.append(f"🤔 Low confidence ({consensus_score*100:.0f}%) - committee needs more discussion")
-
+        # Prepare response
         return InvestmentCommitteeResponse(
             deal_pitch=deal_request.pitch,
             committee_members=committee_members,
             final_verdict=final_verdict,
             consensus_score=consensus_score,
             majority_vote=majority_vote,
-            dissenting_opinions=dissenting_opinions,
-            key_debate_points=key_debate_points
+            dissenting_opinions=[
+                f"{m['name']} voted {m['vote']}: {m['analysis']}"
+                for m in committee_members 
+                if m.get("vote") not in [majority_vote, "Abstain"]
+            ][:5],  # Limit to top 5
+            key_debate_points=[
+                point for member in committee_members 
+                for point in member.get("key_points", [])[:2]  # Take top 2 points from each
+            ][:10]  # Limit to top 10
         )
 
     except Exception as e:

@@ -15,8 +15,8 @@ def _get_db_name_from_uri(uri: str) -> str:
             return candidate
     return "startup_ai"
 
-client = AsyncIOMotorClient(settings.mongo_uri)
-db_name = _get_db_name_from_uri(settings.mongo_uri)
+client = AsyncIOMotorClient(settings.MONGO_URI)
+db_name = _get_db_name_from_uri(settings.MONGO_URI)
 db = client[db_name]
 
 async def init_db(app=None):

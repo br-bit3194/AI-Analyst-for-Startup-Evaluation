@@ -9,25 +9,29 @@ from app.config import settings
 
 def test_gemini_config():
     print("=== Gemini API Configuration Test ===")
-    print(f"LLM Provider: {settings.llm_provider}")
-    print(f"Gemini API Key: {'***' + settings.gemini_api_key[-4:] if settings.gemini_api_key else 'NOT SET'}")
+    print(f"LLM Provider: {settings.LLM_PROVIDER}")
+    print(f"Gemini API Key: {'***' + settings.GEMINI_API_KEY[-4:] if settings.GEMINI_API_KEY else 'NOT SET'}")
 
-    if settings.llm_provider.lower() == "gemini" and settings.gemini_api_key:
+    if settings.LLM_PROVIDER.lower() == "gemini" and settings.GEMINI_API_KEY:
         print("✅ Configuration looks good!")
         print("The backend should now call the actual Gemini API.")
 
-        # Try to import genai
+        # Test the actual API call if everything is configured
         try:
+            print("\nTesting Gemini API...")
             import google.generativeai as genai
-            print("✅ Google Generative AI library is available")
-        except ImportError:
-            print("❌ Google Generative AI library is not installed")
+            genai.configure(api_key=settings.GEMINI_API_KEY)
+            model = genai.GenerativeModel('gemini-pro')
+            response = model.generate_content("Say hello!")
+            print(f"✅ Gemini API test successful! Response: {response.text}")
+        except Exception as e:
+            print(f"⚠️  Gemini API test failed: {e}")
             print("Install with: pip install google-generativeai")
     else:
         print("⚠️  Configuration issues detected:")
-        if settings.llm_provider.lower() != "gemini":
-            print(f"   - LLM_PROVIDER is set to '{settings.llm_provider}', should be 'gemini'")
-        if not settings.gemini_api_key:
+        if settings.LLM_PROVIDER.lower() != "gemini":
+            print(f"   - LLM_PROVIDER is set to '{settings.LLM_PROVIDER}', should be 'gemini'")
+        if not settings.GEMINI_API_KEY:
             print("   - GEMINI_API_KEY is not set")
 
         print("\nTo fix:")

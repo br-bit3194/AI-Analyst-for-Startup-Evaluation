@@ -24,28 +24,64 @@ class AnalysisResponse(BaseModel):
 async def run_analysis(analysis_id: str, pitch: str):
     """Background task to run the analysis."""
     try:
-        # Run the committee analysis
-        result = await committee.analyze_pitch(pitch)
-        
-        # Ensure the result is in the correct format with camelCase field names
+        # Debug: Log the raw committee result
+        print(f"DEBUG: Raw committee result: {result}")
+        print(f"DEBUG: Result type: {type(result)}")
         formatted_result = {}
         if 'final_verdict' in result:
             verdict = result['final_verdict']
+            reasons = verdict.get('reasons', []) or []
+            # Coerce reasons to strings if the backend returned structured objects
+            if isinstance(reasons, list) and reasons and isinstance(reasons[0], dict):
+                reason_strings = []
+                for r in reasons:
+                    try:
+                        if isinstance(r, dict):
+                            desc = r.get('description') or r.get('summary') or r.get('rationale')
+                            if not desc:
+                                # Fallback: join key elements if present
+                                desc = ", ".join(
+                                    str(x) for x in [r.get('category'), r.get('impact'), r.get('evidence')]
+                                    if x
+                                ) or str(r)
+                            reason_strings.append(str(desc))
+                        else:
+                            reason_strings.append(str(r))
+                    except Exception:
+                        reason_strings.append(str(r))
+                reasons = reason_strings
+
+            # Normalize recommendation to UI-expected set
+            rec_raw = (verdict.get('recommendation') or '').upper()
+            if rec_raw == 'STRONG_INVEST':
+                rec = 'INVEST'
+            elif rec_raw in ('INVEST', 'CONSIDER', 'PASS'):
+                rec = rec_raw
+            else:
+                # Map HOLD/unknown to CONSIDER for UI simplicity
+                rec = 'CONSIDER'
+
             formatted_result['finalVerdict'] = {
-                'recommendation': verdict.get('recommendation'),
+                'recommendation': rec,
                 'confidence': verdict.get('confidence'),
                 'confidenceLabel': verdict.get('confidence_label'),
-                'reasons': verdict.get('reasons', []),
+                'reasons': reasons,
                 'timestamp': verdict.get('timestamp')
             }
-            
+        # Debug: Log agent results
+        if 'agent_results' in result:
+            for agent_name, agent_result in result['agent_results'].items():
+                print(f"DEBUG: {agent_name} result: {agent_result}")
+                print(f"DEBUG: {agent_name} success: {agent_result.get('success')}")
+                print(f"DEBUG: {agent_name} content: {agent_result.get('content', '')[:200]}...")
+
         if 'summary' in result:
-            summary = result['summary']
+            summary = result['summary'] or {}
             formatted_result['summary'] = {
-                'keyInsights': summary.get('key_insights', []),
-                'strengths': summary.get('strengths', []),
-                'concerns': summary.get('concerns', []),
-                'recommendations': summary.get('recommendations', [])
+                'keyInsights': summary.get('key_insights', []) or [],
+                'strengths': summary.get('strengths', []) or [],
+                'concerns': summary.get('concerns', []) or [],
+                'recommendations': summary.get('recommendations', []) or []
             }
             
         analysis_results[analysis_id] = {

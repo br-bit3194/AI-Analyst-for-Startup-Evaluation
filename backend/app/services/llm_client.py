@@ -11,8 +11,8 @@ async def call_llm(system_prompt: str, user_prompt: str, model: str = "gpt-like"
     Unified LLM call. If LLM_PROVIDER=gemini and GEMINI_API_KEY is set, use Gemini.
     Otherwise return a lightweight stub for local development.
     """
-    if settings.llm_provider.lower() == "gemini" and settings.gemini_api_key and genai is not None:
-        genai.configure(api_key=settings.gemini_api_key)
+    if settings.LLM_PROVIDER.lower() == "gemini" and settings.GEMINI_API_KEY and genai is not None:
+        genai.configure(api_key=settings.GEMINI_API_KEY)
         model_name = model or "gemini-1.5-flash"
         sys_prefix = system_prompt or ""
 
