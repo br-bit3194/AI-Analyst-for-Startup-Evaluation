@@ -1,24 +1,28 @@
 #!/bin/bash
+set -e
 
-# Install system dependencies
-apt-get update
-apt-get install -y --no-install-recommends \
+# Install minimal system dependencies
+apt-get update && apt-get install -y --no-install-recommends \
     tesseract-ocr \
     tesseract-ocr-eng \
     poppler-utils \
-    libgl1-mesa-glx \
-    libglib2.0-0 \
-    libsm6 \
-    libxext6 \
-    libxrender1 \
     && rm -rf /var/lib/apt/lists/*
 
-# Create a non-root user and set permissions
+# Create non-root user
 useradd -m appuser
-chown -R appuser:appuser /app
 
-# Install Python dependencies
+# Install Python dependencies in a virtual environment
+python -m venv /opt/venv
+. /opt/venv/bin/activate
+
+# Install Python packages with --no-deps to avoid conflicts
+pip install --no-cache-dir --upgrade pip
 pip install --no-cache-dir -r requirements-heroku.txt
 
-# Clean up Python cache
-find /app -type d -name "__pycache__" -exec rm -r {} +
+# Clean up
+find /opt/venv -type d -name "__pycache__" -exec rm -r {} +
+find /opt/venv -type d -name "*.pyc" -delete
+
+# Set permissions
+chown -R appuser:appuser /app
+chmod -R 755 /app
