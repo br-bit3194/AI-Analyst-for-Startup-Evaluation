@@ -1,62 +1,120 @@
 import React from 'react';
+import { 
+  Users, 
+  BrainCircuit, 
+  AlertTriangle, 
+  MessageSquare, 
+  BellRing, 
+  UserCircle, 
+  Globe, 
+  BarChart3, 
+  FileText, 
+  LineChart 
+} from 'lucide-react';
 
-const FeatureCard: React.FC<{ title: string; description: string; icon: React.ReactNode }> = ({ title, description, icon }) => (
-    <div className="bg-white/90 p-6 rounded-lg border border-gray-200 text-center shadow-sm hover:shadow-md transition-shadow duration-200">
-        <div className="flex justify-center items-center mb-4 w-12 h-12 rounded-full bg-indigo-100 mx-auto">
-            {React.cloneElement(icon as React.ReactElement, { 
-                className: 'h-6 w-6 text-indigo-600' 
-            })}
-        </div>
-        <h3 className="mb-2 text-lg font-semibold text-gray-800">{title}</h3>
-        <p className="text-gray-600 text-sm leading-relaxed">{description}</p>
-    </div>
-);
 
+const features = [
+  {
+    title: "AI Boardroom",
+    description: "AI-simulated VC committee debates and votes on deals with human-like insights",
+    icon: <Users className="w-5 h-5" />,
+    gradient: "bg-gradient-to-br from-indigo-600 to-purple-600",
+    hover: "hover:from-indigo-700 hover:to-purple-700"
+  },
+  {
+    title: "Deal Memory",
+    description: "Learns from past investments to uncover biases and improve future decisions",
+    icon: <BrainCircuit className="w-5 h-5" />,
+    gradient: "bg-gradient-to-br from-cyan-600 to-blue-600",
+    hover: "hover:from-cyan-700 hover:to-blue-700"
+  },
+  {
+    title: "Risk Radar",
+    description: "Identifies and quantifies risks with clear, actionable insights",
+    icon: <AlertTriangle className="w-5 h-5" />,
+    gradient: "bg-gradient-to-br from-amber-500 to-orange-500",
+    hover: "hover:from-amber-600 hover:to-orange-600"
+  },
+  {
+    title: "Deal Chat",
+    description: "Natural language Q&A with your deal data and documents",
+    icon: <MessageSquare className="w-5 h-5" />,
+    gradient: "bg-gradient-to-br from-teal-500 to-emerald-600",
+    hover: "hover:from-teal-600 hover:to-emerald-700"
+  },
+  {
+    title: "Portfolio Watch",
+    description: "Real-time monitoring of portfolio companies and market movements",
+    icon: <BellRing className="w-5 h-5" />,
+    gradient: "bg-gradient-to-br from-rose-500 to-pink-600",
+    hover: "hover:from-rose-600 hover:to-pink-700"
+  },
+  {
+    title: "Team Insights",
+    description: "Deep analysis of founding teams' strengths and potential red flags",
+    icon: <UserCircle className="w-5 h-5" />,
+    gradient: "bg-gradient-to-br from-violet-600 to-indigo-600",
+    hover: "hover:from-violet-700 hover:to-indigo-700"
+  },
+  {
+    title: "Market Truth",
+    description: "Validates market size claims against real data and trends",
+    icon: <Globe className="w-5 h-5" />,
+    gradient: "bg-gradient-to-br from-sky-500 to-blue-600",
+    hover: "hover:from-sky-600 hover:to-blue-700"
+  },
+  {
+    title: "Rival Mapper",
+    description: "Visual competitive positioning and benchmarking",
+    icon: <BarChart3 className="w-5 h-5" />,
+    gradient: "bg-gradient-to-br from-emerald-500 to-green-600",
+    hover: "hover:from-emerald-600 hover:to-green-700"
+  },
+  {
+    title: "Deal Brief",
+    description: "One-click generation of investor-ready deal memos",
+    icon: <FileText className="w-5 h-5" />,
+    gradient: "bg-gradient-to-br from-purple-500 to-fuchsia-600",
+    hover: "hover:from-purple-600 hover:to-fuchsia-700"
+  }
+];
 
 const Welcome: React.FC = () => {
     return (
-        <div className="text-center py-10 px-4">
-            <p className="text-lg text-gray-700 max-w-3xl mx-auto mb-12 leading-relaxed">
-                Your <span className="font-semibold text-indigo-600">AI-powered Venture Capital Associate</span>. Enter a startup's details above to receive a comprehensive investment analysis, leveraging simulated institutional knowledge and multi-persona evaluation.
-            </p>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 max-w-6xl mx-auto text-white">
-                <FeatureCard 
-                    title="Founder DNA Analysis" 
-                    description="Analyzes communication, team dynamics, and predicts founder responses to stress."
-                    icon={<IconBrain />}
-                />
-                 <FeatureCard 
-                    title="Market Pulse Intel" 
-                    description="Simulates real-time news impact and competitor threats affecting the deal."
-                    icon={<IconPulse />}
-                />
-                 <FeatureCard 
-                    title="Investment Committee" 
-                    description="Simulates multiple investor personas to provide a 360-degree view on the deal."
-                    icon={<IconUsers />}
-                />
+        <div className="py-10 px-4 max-w-7xl mx-auto">
+            <div className="text-center mb-16">
+                <h1 className="text-4xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-purple-600 mb-4">
+                    AI-Powered Venture Capital Analysis
+                </h1>
+                <p className="text-lg text-gray-700 max-w-4xl mx-auto leading-relaxed">
+                    Get comprehensive startup evaluations powered by AI, combining multi-agent simulations, 
+                    market intelligence, and financial analysis to make better investment decisions.
+                </p>
+            </div>
+            
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {features.map((feature, index) => (
+                    <div 
+                        key={index}
+                        className={`${feature.gradient} ${feature.hover} p-5 rounded-xl text-white transition-all duration-300 transform hover:-translate-y-0.5 hover:shadow-lg`}
+                    >
+                        <div className="bg-white/20 backdrop-blur-sm w-10 h-10 rounded-lg flex items-center justify-center mb-3 shadow-inner">
+                            {React.cloneElement(feature.icon, { className: "w-5 h-5 text-white" })}
+                        </div>
+                        <h3 className="text-lg font-bold mb-2 text-white drop-shadow-sm">{feature.title}</h3>
+                        <p className="text-white/90 text-xs leading-snug">{feature.description}</p>
+                    </div>
+                ))}
+            </div>
+            
+            <div className="mt-16 text-center">
+                <p className="text-lg text-gray-700 max-w-3xl mx-auto mb-8 leading-relaxed">
+                    Ready to analyze a startup? Enter the details above to get started with our comprehensive investment analysis.
+                </p>
             </div>
         </div>
     );
 };
-
-
-const IconBrain = () => (
-    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-brand-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M19.428 15.428a2.5 2.5 0 00-3.536 0l-3.535 3.536a2.5 2.5 0 103.536 3.536l3.535-3.536a2.5 2.5 0 000-3.536z" />
-        <path strokeLinecap="round" strokeLinejoin="round" d="M12 12h.01M4.572 8.572a2.5 2.5 0 000 3.536l3.536 3.536a2.5 2.5 0 003.536 0l3.535-3.536a2.5 2.5 0 000-3.536l-3.536-3.535a2.5 2.5 0 00-3.536 0L4.572 8.572z" />
-    </svg>
-);
-const IconPulse = () => (
-    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-brand-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
-    </svg>
-);
-const IconUsers = () => (
-    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-brand-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-    </svg>
-);
 
 
 export default Welcome;

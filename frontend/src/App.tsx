@@ -274,24 +274,8 @@ const DealAnalysis: React.FC = () => {
       <div className="space-y-6">
         {/* Analysis in Progress */}
         {isLoading && (
-          <div className="rounded-md bg-blue-50 p-6 text-center">
-            <div className="flex flex-col items-center space-y-4">
-              <div className="flex items-center justify-center">
-                <div className="flex-shrink-0">
-                  <LoadingSpinner />
-                </div>
-                <div className="ml-3">
-                  <p className="text-lg font-medium text-blue-800">
-                    {activeTab === 'committee' 
-                      ? 'Simulating investment committee discussion...' 
-                      : 'Analyzing your startup pitch...'}
-                  </p>
-                </div>
-              </div>
-              <p className="text-sm text-blue-700">
-                Please wait while the analysis is being generated.
-              </p>
-            </div>
+          <div className="w-full max-w-4xl mx-auto">
+            <LoadingSpinner isCommittee={activeTab === 'committee'} />
           </div>
         )}
 
