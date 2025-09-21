@@ -1,6 +1,6 @@
 # 3D Visualization Components
 
-This directory contains 3D visualization components built with Three.js and React Three Fiber for the Dealflow Oracle application.
+This directory contains 3D visualization components built with Three.js and React Three Fiber for the Startalytica application.
 
 ## Components
 

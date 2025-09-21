@@ -14,7 +14,7 @@ const FeatureCard: React.FC<{ title: string; description: string; icon: React.Re
 const Welcome: React.FC = () => {
     return (
         <div className="text-center py-10 px-4">
-            <h2 className="text-4xl font-extrabold text-white mb-4">Welcome to Dealflow Oracle</h2>
+            <h2 className="text-4xl font-extrabold text-white mb-4">Welcome to Startalytica</h2>
             <p className="text-lg text-slate-300 max-w-3xl mx-auto mb-12">
                 Your AI-powered Venture Capital Associate. Enter a startup's details above to receive a comprehensive investment analysis, leveraging simulated institutional knowledge and multi-persona evaluation.
             </p>

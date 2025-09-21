@@ -17,7 +17,7 @@ const Sidebar = () => {
     <div className="hidden md:flex md:flex-shrink-0">
       <div className="flex flex-col w-64 h-screen bg-white border-r border-gray-200">
         <div className="flex items-center h-16 px-6 border-b border-gray-200">
-          <h1 className="text-xl font-bold text-gray-900">Dealflow Oracle</h1>
+          <h1 className="text-xl font-bold text-gray-900">Startalytica</h1>
         </div>
         <div className="flex-1 overflow-y-auto">
           <nav className="px-2 py-4 space-y-1">
@@ -40,7 +40,7 @@ const Sidebar = () => {
         <div className="p-4 border-t border-gray-200">
           <div className="flex items-center">
             <div>
-              <p className="text-sm font-medium text-gray-700">Dealflow Oracle</p>
+              <p className="text-sm font-medium text-gray-700">Startalytica</p>
               <p className="text-xs text-gray-500">2025</p>
             </div>
           </div>

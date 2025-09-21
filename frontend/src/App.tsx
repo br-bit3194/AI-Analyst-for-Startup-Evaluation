@@ -54,7 +54,7 @@ const DealAnalysis: React.FC = () => {
   
   // Set the document title
   useEffect(() => {
-    document.title = 'Dashboard | Dealflow Oracle';
+    document.title = 'Dashboard | Startalytica';
   }, []);
 
   // Handle committee simulation
