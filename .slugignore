@@ -3,8 +3,9 @@
 
 # Allow specific files
 !/.gitignore
+!/.python-version
 !/Procfile
-!/requirements-heroku.txt
+!/requirements.txt
 !/runtime.txt
 !/setup.py
 
