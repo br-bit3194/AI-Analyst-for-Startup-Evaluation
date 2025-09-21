@@ -1,0 +1,39 @@
+# Ignore large directories
+frontend/
+backend/tests/
+backend/venv/
+backend/uploads/
+backend/data/
+
+# Ignore development files
+*.pyc
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Ignore environment files
+.env
+.env.*
+!.env.production
+
+# Ignore version control
+.git
+.gitignore
+
+# Ignore large ML models
+*.bin
+*.h5
+*.pth
+*.pt
+*.pkl
+*.joblib
+
+# Ignore documentation
+*.md
+*.rst
+
+# Ignore IDE files
+.vscode/
+.idea/
+*.swp
+*.swo

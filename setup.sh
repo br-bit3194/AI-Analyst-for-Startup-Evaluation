@@ -10,11 +10,15 @@ apt-get install -y --no-install-recommends \
     libglib2.0-0 \
     libsm6 \
     libxext6 \
-    libxrender1
+    libxrender1 \
+    && rm -rf /var/lib/apt/lists/*
 
-# Clean up
-apt-get clean
-rm -rf /var/lib/apt/lists/*
+# Create a non-root user and set permissions
+useradd -m appuser
+chown -R appuser:appuser /app
 
-# Make the script executable
-chmod +x /app/startup.sh
+# Install Python dependencies
+pip install --no-cache-dir -r requirements-heroku.txt
+
+# Clean up Python cache
+find /app -type d -name "__pycache__" -exec rm -r {} +
