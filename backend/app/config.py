@@ -9,11 +9,12 @@ class Settings(BaseSettings):
     gcloud_bucket: Optional[str] = None
     redis_url: Optional[str] = None
     llm_provider: str = "gemini"
-    openai_api_key: Optional[str] = None
     gemini_api_key: Optional[str] = None
     use_vision: bool = False
 
     class Config:
         env_file = ".env"
+        extra="ignore"
+
 
 settings = Settings()
