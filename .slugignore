@@ -1,31 +1,36 @@
 # Ignore everything by default
 /*
 
-# Allow specific files
+# Allow specific files in root
 !/.gitignore
 !/.python-version
+!/.slugignore
 !/Procfile
 !/requirements.txt
 !/runtime.txt
 !/setup.py
+!/app.json
+!/Aptfile
 
 # Allow backend code
-!/backend
+!/backend/
 /backend/*
-!/backend/app
+!/backend/app/
 /backend/app/*
-!/backend/app/main.py
 !/backend/app/*.py
 
 # Allow specific directories
-!/backend/app/api
-!/backend/app/core
-!/backend/app/db
-!/backend/app/models
-!/backend/app/services
+!/backend/app/api/
+!/backend/app/core/
+!/backend/app/db/
+!/backend/app/models/
+!/backend/app/services/
+
+# Include all Python files in allowed directories
+/backend/app/**/*.py
 
 # Ignore test and development files
-**/tests/**
+**/tests/
 **/test_*.py
 **/conftest.py
 **/pytest.ini
