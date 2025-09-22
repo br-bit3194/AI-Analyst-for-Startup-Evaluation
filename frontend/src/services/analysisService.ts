@@ -1,6 +1,6 @@
 import { AnalysisResponse } from '../types/analysis';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://ai-analyst-for-startup-evaluation.onrender.com';
 
 /**
  * Start a new analysis of a startup pitch
