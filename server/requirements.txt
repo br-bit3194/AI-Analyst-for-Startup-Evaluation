@@ -15,10 +15,14 @@ pymongo
 pdfminer.six
 python-docx
 pillow
+pdfplumber
+python-pptx
+pytesseract
 
-# Google Cloud Services (only if needed)
+# Google Cloud Services
 google-cloud-storage
 google-cloud-vision
+google-generativeai>=0.3.0
 
 # Web Scraping (minimal)
 beautifulsoup4
@@ -32,3 +36,12 @@ pydantic-core
 python-dateutil
 PyJWT
 cryptography
+
+# AI/ML
+numpy>=1.24.0
+faiss-cpu>=1.7.4
+
+# HTTP Clients
+httpx
+aiohttp
+python-jose

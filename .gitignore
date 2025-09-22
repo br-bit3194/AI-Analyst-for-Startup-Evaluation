@@ -24,6 +24,7 @@ MANIFEST
 # Virtual Environment
 server/env/
 server/venv/
+server/env2
 ENV/
 
 # Environment variables
