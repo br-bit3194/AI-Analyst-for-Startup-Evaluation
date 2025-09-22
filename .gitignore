@@ -1,7 +1,71 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual Environment
 server/env/
-server/venv
-server/.env
-*.pyc
+server/venv/
+ENV/
+
+# Environment variables
 .env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Build files
+/client/build
+/client/dist
+
+# Uploads
 server/uploads/
+
+# Data
 server/data/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Logs
+logs/
+*.log
+
+# Local development
+.DS_Store
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Misc
+.DS_Store
+Thumbs.db
