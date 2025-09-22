@@ -1,7 +1,7 @@
-backend/env/
-backend/venv
-backend/.env
+server/env/
+server/venv
+server/.env
 *.pyc
 .env
-backend/uploads/
-backend/data/
+server/uploads/
+server/data/
