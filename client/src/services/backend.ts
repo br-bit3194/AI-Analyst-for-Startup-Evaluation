@@ -1,4 +1,4 @@
-export const BACKEND_BASE_URL = (import.meta as any).env?.VITE_BACKEND_URL || 'http://localhost:8000';
+export const BACKEND_BASE_URL = (import.meta as any).env?.VITE_BACKEND_URL || 'https://ai-analyst-for-startup-evaluation.onrender.com';
 
 export interface DealAnalysisResponse {
   verdict: string;

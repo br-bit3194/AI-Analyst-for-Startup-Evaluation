@@ -92,7 +92,7 @@ import requests
 
 # Get relevant context for a financial analyst
 response = requests.post(
-    "http://localhost:8000/api/agent/context",
+    "https://ai-analyst-for-startup-evaluation.onrender.com/api/agent/context",
     json={
         "startup_id": "startup_123",
         "agent_role": "financial_analyst",
