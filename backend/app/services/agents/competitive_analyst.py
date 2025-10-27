@@ -62,14 +62,24 @@ class CompetitiveAnalyst(BaseAgent):
                 if isinstance(response, str):
                     # First try to parse the entire response as JSON
                     try:
+                        # Clean the response string first
+                        response = response.strip()
+                        if response.startswith('```json'):
+                            response = response[7:].strip().rstrip('`')
+                        
                         parsed_response = json.loads(response)
-                        # If the response has a competitive_analysis field, use that
-                        if 'competitive_analysis' in parsed_response:
+                        
+                        # Check for both 'competitive_landscape' and 'competitive_analysis' for backward compatibility
+                        if 'competitive_landscape' in parsed_response:
+                            competitive_analysis = parsed_response['competitive_landscape']
+                            confidence = parsed_response.get('confidence', 0.8)
+                        elif 'competitive_analysis' in parsed_response:
                             competitive_analysis = parsed_response['competitive_analysis']
                             confidence = parsed_response.get('confidence', 0.8)
                         else:
+                            # If neither key exists, use the entire response as the analysis
                             competitive_analysis = parsed_response
-                            confidence = 0.8
+                            confidence = parsed_response.get('confidence', 0.8)
                     except json.JSONDecodeError:
                         # If parsing fails, try to fix common JSON issues
                         try:
@@ -79,7 +89,11 @@ class CompetitiveAnalyst(BaseAgent):
                             if start >= 0 and end > start:
                                 json_str = response[start:end]
                                 parsed_response = json.loads(json_str)
-                                competitive_analysis = parsed_response.get('competitive_analysis', parsed_response)
+                                # Try both possible keys
+                                competitive_analysis = parsed_response.get(
+                                    'competitive_landscape',
+                                    parsed_response.get('competitive_analysis', parsed_response)
+                                )
                                 confidence = parsed_response.get('confidence', 0.8)
                             else:
                                 raise ValueError("No valid JSON found in response")
@@ -92,7 +106,10 @@ class CompetitiveAnalyst(BaseAgent):
                             confidence = 0.1
                 elif isinstance(response, dict):
                     # If response is already a dict, use it directly
-                    competitive_analysis = response.get('competitive_analysis', response)
+                    competitive_analysis = response.get(
+                        'competitive_landscape',
+                        response.get('competitive_analysis', response)
+                    )
                     confidence = response.get('confidence', 0.8)
                 else:
                     raise ValueError(f"Unexpected response type: {type(response)}")
@@ -110,8 +127,19 @@ class CompetitiveAnalyst(BaseAgent):
                 except (TypeError, ValueError):
                     confidence = 0.5
                 
+                # Ensure we have the required structure
+                if not isinstance(competitive_analysis, dict):
+                    competitive_analysis = {
+                        "error": "Invalid response format from LLM",
+                        "raw_response": str(competitive_analysis)[:500]
+                    }
+                    confidence = 0.1
+                
                 return self._format_response(
-                    {"competitive_analysis": competitive_analysis},
+                    {
+                        "competitive_landscape": competitive_analysis,
+                        "confidence": confidence
+                    },
                     confidence=confidence
                 )
                 
@@ -121,9 +149,24 @@ class CompetitiveAnalyst(BaseAgent):
                 print(f"Error in CompetitiveAnalyst: {error_msg}")
                 return self._format_response(
                     {
-                        "competitive_analysis": {
+                        "competitive_landscape": {
                             "error": error_msg,
-                            "raw_response": str(response)[:500]  # Include first 500 chars of response for debugging
+                            "raw_response": str(response)[:500],  # Include first 500 chars of response for debugging
+                            "direct_competitors": [],
+                            "market_position": {
+                                "positioning": "N/A",
+                                "unique_value_prop": "N/A",
+                                "moat": "N/A"
+                            },
+                            "barriers_to_entry": {
+                                "existing": [],
+                                "potential": []
+                            },
+                            "threat_analysis": {
+                                "incumbent_threats": [],
+                                "new_entrant_risks": [],
+                                "substitute_products": []
+                            }
                         }
                     },
                     success=False,

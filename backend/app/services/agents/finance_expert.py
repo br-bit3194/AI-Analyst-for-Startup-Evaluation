@@ -63,14 +63,23 @@ class FinanceExpert(BaseAgent):
                 # Try to parse the response as JSON
                 import json
                 if isinstance(response, str):
+                    # Clean the response string first
+                    response = response.strip()
+                    if response.startswith('```json'):
+                        response = response[7:].strip().rstrip('`')
+                    
                     # First try to parse the entire response as JSON
                     try:
                         parsed_response = json.loads(response)
-                        # If the response has a financial_analysis field, use that
+                        # Check for both 'financial_analysis' and direct structure
                         if 'financial_analysis' in parsed_response:
                             financial_analysis = parsed_response['financial_analysis']
                             confidence = parsed_response.get('confidence', 0.8)
+                        elif all(key in parsed_response for key in ['revenue_analysis', 'unit_economics', 'financial_health', 'projections']):
+                            financial_analysis = parsed_response
+                            confidence = parsed_response.get('confidence', 0.8)
                         else:
+                            # If structure doesn't match, use the entire response
                             financial_analysis = parsed_response
                             confidence = 0.8
                     except json.JSONDecodeError:
@@ -82,7 +91,13 @@ class FinanceExpert(BaseAgent):
                             if start >= 0 and end > start:
                                 json_str = response[start:end]
                                 parsed_response = json.loads(json_str)
-                                financial_analysis = parsed_response.get('financial_analysis', parsed_response)
+                                # Try both possible structures
+                                if 'financial_analysis' in parsed_response:
+                                    financial_analysis = parsed_response['financial_analysis']
+                                elif all(key in parsed_response for key in ['revenue_analysis', 'unit_economics', 'financial_health', 'projections']):
+                                    financial_analysis = parsed_response
+                                else:
+                                    financial_analysis = parsed_response
                                 confidence = parsed_response.get('confidence', 0.8)
                             else:
                                 raise ValueError("No valid JSON found in response")
@@ -95,7 +110,12 @@ class FinanceExpert(BaseAgent):
                             confidence = 0.1
                 elif isinstance(response, dict):
                     # If response is already a dict, use it directly
-                    financial_analysis = response.get('financial_analysis', response)
+                    if 'financial_analysis' in response:
+                        financial_analysis = response['financial_analysis']
+                    elif all(key in response for key in ['revenue_analysis', 'unit_economics', 'financial_health', 'projections']):
+                        financial_analysis = response
+                    else:
+                        financial_analysis = response
                     confidence = response.get('confidence', 0.8)
                 else:
                     raise ValueError(f"Unexpected response type: {type(response)}")
@@ -113,8 +133,24 @@ class FinanceExpert(BaseAgent):
                 except (TypeError, ValueError):
                     confidence = 0.5
                 
+                # Ensure we have all required sections with proper defaults
+                default_section = {
+                    "analysis": "Not available",
+                    "strengths": [],
+                    "concerns": []
+                }
+                
+                # Ensure all required sections exist
+                financial_analysis = {
+                    "revenue_analysis": financial_analysis.get('revenue_analysis', default_section.copy()),
+                    "unit_economics": financial_analysis.get('unit_economics', default_section.copy()),
+                    "financial_health": financial_analysis.get('financial_health', default_section.copy()),
+                    "projections": financial_analysis.get('projections', default_section.copy()),
+                    "confidence": confidence
+                }
+                
                 return self._format_response(
-                    {"financial_analysis": financial_analysis},
+                    financial_analysis,
                     confidence=confidence
                 )
                 
@@ -122,13 +158,35 @@ class FinanceExpert(BaseAgent):
                 # If parsing fails, wrap the response in a structured format
                 error_msg = f"Failed to process financial analysis: {str(e)}"
                 print(f"Error in FinanceExpert: {error_msg}")
-                return self._format_response(
-                    {
-                        "financial_analysis": {
-                            "error": error_msg,
-                            "raw_response": str(response)[:500]  # Include first 500 chars of response for debugging
-                        }
+                # Return a structured error response with all required sections
+                error_response = {
+                    "revenue_analysis": {
+                        "analysis": f"Error: {error_msg}",
+                        "strengths": [],
+                        "concerns": ["Failed to analyze"]
                     },
+                    "unit_economics": {
+                        "analysis": "Analysis unavailable due to error",
+                        "cac": None,
+                        "ltv": None,
+                        "payback_period": None
+                    },
+                    "financial_health": {
+                        "analysis": "Analysis unavailable due to error",
+                        "burn_rate": None,
+                        "runway_months": None
+                    },
+                    "projections": {
+                        "analysis": "Analysis unavailable due to error",
+                        "assumptions": [],
+                        "risks": []
+                    },
+                    "error": error_msg,
+                    "raw_response": str(response)[:500]
+                }
+                
+                return self._format_response(
+                    error_response,
                     success=False,
                     error=error_msg,
                     confidence=0.0
