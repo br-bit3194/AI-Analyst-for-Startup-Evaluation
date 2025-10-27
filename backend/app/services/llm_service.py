@@ -1,31 +1,40 @@
 import json
 import logging
-from typing import Dict, Any, List
-import google.generativeai as genai
+from typing import Dict, Any, List, Optional, Union
 from ..config import settings
 
-# Configure logging
+# Configure logging first
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# Import the appropriate service based on configuration
+provider = (getattr(settings, 'llm_provider', '') or 'vertexai').lower()
+try:
+    from .vertex_ai_service import VertexAIService as LLMProvider
+    logger.info("Using Vertex AI as the LLM provider")
+except ImportError as e:
+    logger.error(f"Failed to import Vertex AI service: {e}")
+    raise ImportError(
+        "Failed to initialize Vertex AI. Make sure you have installed the required dependencies: "
+        "`pip install google-cloud-aiplatform vertexai`"
+    )
+
 
 class LLMService:
-    """Service for interacting with Gemini LLM."""
+    """Service for interacting with LLM providers (Vertex AI or Gemini API)."""
     
     def __init__(self):
-        """Initialize the LLM service with configuration from environment variables."""
-        self.model_name = settings.gemini_model_name
-        self.temperature = float(getattr(settings, 'gemini_model_temperature', 0.7))
-        self._initialize_gemini()
-    
-    def _initialize_gemini(self):
-        """Initialize the Gemini client with API key from environment variables."""
-        if not settings.gemini_api_key:
-            raise ValueError("gemini_api_key not configured in settings")
-            
-        genai.configure(api_key=settings.gemini_api_key)
-        self.model = genai.GenerativeModel(self.model_name)
-    
+        """Initialize the LLM service with the configured provider."""
+        self.provider = LLMProvider()
+        
+        # Set temperature based on the provider
+        self.temperature = getattr(settings, 'vertex_temperature', 0.7)
+        # Verify Vertex AI configuration
+        if not all([getattr(settings, 'vertex_project', None), getattr(settings, 'vertex_location', None)]):
+            logger.warning(
+                "Vertex AI is not properly configured. "
+                "Please set VERTEX_PROJECT and VERTEX_LOCATION in your environment variables."
+            )
     def _clean_json_string(self, json_str: str) -> str:
         """Clean and repair a JSON string with common formatting issues."""
         if not json_str or not isinstance(json_str, str):
@@ -115,125 +124,74 @@ class LLMService:
             
         return cleaned
     
+    async def analyze_with_agent(self, agent_type: str, context: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Analyze the given context using a specific agent type.
+        
+        Args:
+            agent_type: Type of agent (e.g., 'RiskAnalyst', 'MarketExpert')
+            context: Context data for analysis
+            
+        Returns:
+            Dict containing analysis results
+        """
+        if not hasattr(self.provider, 'analyze_with_agent'):
+            logger.warning(f"Provider {type(self.provider).__name__} does not support agent analysis")
+            return {
+                'analysis': f"Agent analysis not supported by {type(self.provider).__name__}",
+                'confidence': 0.1,
+                'key_findings': [],
+                'recommendations': [f"Switch to a provider that supports agent analysis"]
+            }
+            
+        return await self.provider.analyze_with_agent(agent_type, context)
+        
     async def generate_text(
         self, 
         prompt: str, 
         response_format: str = "text",
-        temperature: float = None,
-        max_tokens: int = 2048,
         **kwargs
-    ) -> Any:
-        """Generate text using the Gemini model.
+    ) -> Union[str, Dict]:
+        """
+        Generate text using the configured LLM provider.
         
         Args:
-            prompt: The prompt to generate text from
-            response_format: The format of the response ('text' or 'json')
-            temperature: Controls randomness (0.0 to 1.0)
-            max_tokens: Maximum number of tokens to generate
-            **kwargs: Additional generation parameters
+            prompt: The input prompt
+            response_format: The expected response format ("text" or "json")
+            **kwargs: Additional arguments to pass to the provider
             
         Returns:
-            Generated text or parsed JSON, depending on response_format
+            The generated text or parsed JSON object
         """
         try:
-            # Use instance temperature if not explicitly provided
-            if temperature is None:
-                temperature = self.temperature
-                
-            # Add format instruction if JSON is requested
-            if response_format.lower() == "json":
-                prompt = f"""{prompt}
-                
-IMPORTANT: Your response MUST be a valid JSON object with the following rules:
-1. Use double quotes for all strings and property names
-2. Escape all special characters in strings with a backslash (e.g., \" and \\)
-3. Do NOT include any markdown formatting like ```json or ```
-4. Ensure all strings are properly quoted
-5. Remove any trailing commas in arrays and objects
-6. Ensure all brackets and braces are properly matched
-
-Example of valid JSON:
-{{
-    "key": "value",
-    "nested": {{
-        "array": [1, 2, 3],
-        "escaped": "This is a \"quoted\" string"
-    }}
-}}
-"""
+            response = await self.provider.generate_text(prompt, **kwargs)
             
-            # Generate response
-            response = await self.model.generate_content_async(
-                prompt,
-                generation_config={
-                    "temperature": min(max(temperature, 0), 1),  # Ensure 0-1 range
-                    "max_output_tokens": max(1, min(max_tokens, 8192)),  # Ensure reasonable limits
-                    **{k: v for k, v in kwargs.items() if k not in ['temperature', 'max_output_tokens']}
-                }
-            )
-            
-            # Extract text from response
-            result = response.text.strip()
-            
-            # Parse JSON if requested
-            if response_format.lower() == "json":
-                max_attempts = 3
-                last_error = None
-                
-                for attempt in range(max_attempts):
+            if response_format == "json":
+                try:
+                    # Try to parse as JSON if the provider didn't already
+                    if isinstance(response, str):
+                        return json.loads(response)
+                    return response
+                except json.JSONDecodeError as e:
+                    logger.error(f"Failed to parse JSON response: {str(e)}")
+                    # Try to fix common JSON issues
                     try:
-                        # Try direct JSON parse first
-                        logger.info(f"result: {result}")
-                        parsed = json.loads(result)
-                        return parsed
-                    except json.JSONDecodeError as e:
-                        last_error = e
-                        logger.warning(f"JSON parse attempt {attempt + 1} failed: {str(e)}")
-                        
-                        # Save the original result for the first attempt
-                        if attempt == 0:
-                            original_result = result
-                        
-                        # Clean and try again with more aggressive cleaning on subsequent attempts
-                        result = self._clean_json_string(original_result if attempt > 0 else result)
-                        
-                        if attempt == max_attempts - 1:  # Last attempt
-                            logger.error(f"JSON parse failed after {max_attempts} attempts")
-                            logger.debug(f"Original response: {original_result}")
-                            logger.debug(f"Cleaned response: {result}")
+                        # Try to extract JSON from markdown code blocks
+                        json_match = re.search(r'```(?:json)?\n(.*?)\n```', response, re.DOTALL)
+                        if json_match:
+                            return json.loads(json_match.group(1))
                             
-                            # Try to extract a valid JSON substring as a last resort
-                            try:
-                                # Look for the largest valid JSON object/array
-                                for i in range(len(result)):
-                                    for j in range(len(result), i, -1):
-                                        try:
-                                            return json.loads(result[i:j])
-                                        except json.JSONDecodeError:
-                                            continue
-                            except Exception:
-                                pass
-                            
-                            # If we get here, all attempts failed
-                            error_msg = (
-                                "The model's response could not be parsed as valid JSON. "
-                                f"Original error: {str(last_error)}\n"
-                                "This might be due to malformed JSON or special characters in the response. "
-                                "Try modifying your prompt to request simpler JSON output."
-                            )
-                            logger.error(error_msg)
-                            raise ValueError(error_msg) from last_error
+                        # Try to fix common JSON issues
+                        fixed = self._fix_json(response)
+                        return json.loads(fixed)
+                    except Exception as e2:
+                        logger.error(f"Failed to fix JSON response: {str(e2)}")
+                        raise ValueError(f"Invalid JSON response from LLM: {response[:200]}...")
             
-            return result
+            return response
             
         except Exception as e:
-            logger.error(f"Error generating text: {str(e)}", exc_info=True)
-            if response_format.lower() == "json":
-                # Return a safe error response in the expected format
-                return {
-                    "error": "Failed to generate valid response",
-                    "details": str(e)
-                }
+            logger.error(f"Error generating text: {str(e)}")
             raise
     
     async def analyze_sentiment(self, text: str) -> Dict[str, float]:

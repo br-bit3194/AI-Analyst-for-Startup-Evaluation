@@ -1,9 +1,11 @@
 from typing import List, Dict, Any, Optional
 import logging
+import json
 from datetime import datetime
 
 from ..models.startup import StartupAnalysis
 from .vector_store import VectorStore
+from .llm_service import LLMService
 
 logger = logging.getLogger(__name__)
 
@@ -13,26 +15,42 @@ class AgentContextService:
     Provides relevant information from the vector store to assist in decision making.
     """
     
-    def __init__(self, vector_store: Optional[VectorStore] = None):
+    def __init__(self, vector_store: Optional[VectorStore] = None, llm_service: Optional[LLMService] = None):
         self.vector_store = vector_store or VectorStore()
+        self.llm_service = llm_service or LLMService()
     
+    async def analyze_with_agent(self, agent_type: str, context: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Analyze the given context using a specific agent type.
+        
+        Args:
+            agent_type: Type of agent (e.g., 'RiskAnalyst', 'MarketExpert')
+            context: Context data for analysis
+            
+        Returns:
+            Dict containing analysis results
+        """
+        return await self.llm_service.analyze_with_agent(agent_type, context)
+        
     async def get_agent_context(
         self,
         startup_id: str,
         agent_role: str,
         query: str,
         top_k: int = 5,
-        threshold: float = 0.7
+        threshold: float = 0.7,
+        include_analysis: bool = True
     ) -> Dict[str, Any]:
         """
         Get relevant context for an agent based on their role and the current query.
         
         Args:
             startup_id: ID of the startup being analyzed
-            agent_role: Role of the agent (e.g., 'market_analyst', 'financial_analyst')
+            agent_role: Role of the agent (e.g., 'RiskAnalyst', 'MarketExpert')
             query: The current query or context from the agent
             top_k: Number of relevant chunks to retrieve
             threshold: Minimum similarity score for including results
+            include_analysis: Whether to include AI analysis of the context
             
         Returns:
             Dictionary containing relevant context and metadata
@@ -46,6 +64,7 @@ class AgentContextService:
                 "startup_id": startup_id,
                 "agent_role": agent_role,
                 "relevant_chunks": [],
+                "analysis": None,
                 "timestamp": datetime.utcnow().isoformat(),
                 "error": "No data available for this startup"
             }

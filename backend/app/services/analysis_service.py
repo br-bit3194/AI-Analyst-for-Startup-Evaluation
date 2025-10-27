@@ -56,6 +56,7 @@ class AnalysisService:
         self.web_scraper = WebScraper()
         self.vector_store = VectorStore()
         self.storage = AnalysisStorage()
+        self.llm_service = LLMService()
         
     async def create_analysis_record(self, user_id: str, pitch: str, website_url: Optional[str] = None) -> str:
         """Create a new analysis record in the database and return its ID."""
@@ -300,9 +301,6 @@ class AnalysisService:
 
     async def _analyze_pitch(self, pitch: str) -> Dict[str, Any]:
         """Analyze the startup pitch text."""
-        # Initialize LLM service
-        llm = LLMService()
-        
         # Create a prompt for pitch analysis
         prompt = f"""Analyze the following startup pitch and provide a detailed analysis.
         Focus on the following aspects:
@@ -326,7 +324,7 @@ class AnalysisService:
         Ensure the response is valid JSON with double quotes for all strings and no trailing commas."""
         
         try:
-            response = await llm.generate_text(prompt, response_format="json")
+            response = await self.llm_service.generate_text(prompt, response_format="json")
             return response
         except Exception as e:
             logger.error(f"Error analyzing pitch: {str(e)}")
@@ -339,9 +337,6 @@ class AnalysisService:
             
         # Combine all context into a single text
         context_text = "\n\n".join([doc['content'] for doc in vector_context if 'content' in doc])
-        
-        # Initialize LLM service
-        llm = LLMService()
         
         # Create a prompt for website analysis
         prompt = f"""Analyze the following website content and extract key information:

@@ -47,6 +47,52 @@ uvicorn app.main:app --reload
 Server will run at: http://127.0.0.1:8000
 
 🚀 API Usage
+# AI Analyst for Startup Evaluation - Backend
+
+![Python](https://img.shields.io/badge/python-3.9+-blue.svg)
+![FastAPI](https://img.shields.io/badge/FastAPI-0.104.1-green.svg)
+[MIT License](LICENSE)
+
+The backend service for the AI Analyst platform that provides intelligent analysis of startup pitches using a committee of specialized AI agents.
+
+## 🚀 Features
+
+- **Multi-agent Analysis System** with specialized agents:
+  - Finance Expert
+  - Market Expert
+  - Competitive Analyst
+  - Risk Analyst
+  - Team Evaluator
+
+- **Document Processing**
+  - PDF, DOCX, PPTX support
+  - Text extraction and analysis
+  - Google Cloud Vision integration for image processing
+
+- **API Endpoints**:
+  - `/api/analysis` - Startup pitch analysis
+  - `/api/documents` - Document management
+  - `/api/finance` - Financial analysis
+  - `/api/verdict` - Investment recommendations
+  - `/api/agent/context` - Agent context management
+
+## 🛠️ Tech Stack
+
+- **Framework**: FastAPI
+- **Database**: MongoDB (via Motor)
+- **AI/ML**: Google Generative AI, Sentence Transformers
+- **Document Processing**: pdfplumber, python-docx, python-pptx
+- **Vector Storage**: FAISS
+- **Authentication**: JWT
+- **Cloud**: Google Cloud Storage, Google Cloud Vision
+
+## 🚦 Prerequisites
+
+- Python 3.9+
+- MongoDB instance
+- Google Cloud account (for AI and storage services)
+- Environment variables (see `.env.example`)
+
 📤 1. File Upload
 
 POST /upload/
