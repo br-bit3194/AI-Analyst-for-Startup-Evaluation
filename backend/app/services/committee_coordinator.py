@@ -222,7 +222,7 @@ class CommitteeCoordinator:
             agent_results: Dictionary of agent analysis results
             
         Returns:
-            Dict containing the final verdict and confidence
+            Dict containing the final verdict, confidence, and committee analysis
         """
         # Debug: Log the structure of agent_results
         print("\n=== Agent Results ===")
@@ -242,33 +242,22 @@ class CommitteeCoordinator:
             'TeamEvaluator': 0.15
         }
         
-        # Calculate weighted confidence
+        # Calculate weighted confidence and collect votes
         total_weight = 0
         weighted_confidence = 0
+        votes = []
         
         for agent_name, result in agent_results.items():
             try:
-                # Debug: Print agent result before processing
-                print(f"\nProcessing {agent_name}:")
-                print(f"Result type: {type(result)}")
-                print(f"Result content: {result}")
-                
-                # Skip if result is not a dictionary
-                if not isinstance(result, dict):
-                    print(f"Warning: {agent_name} result is not a dictionary: {result}")
+                # Skip if result is not a dictionary or indicates failure
+                if not isinstance(result, dict) or not result.get('success', False):
                     continue
                 
-                # Skip if result indicates failure
-                if not result.get('success', False):
-                    print(f"Warning: {agent_name} reported failure: {result.get('error', 'No error details')}")
-                    continue
-                
-                # Get confidence, defaulting to 0 if not a number
+                # Get confidence, defaulting to 0.5 if not a number
                 try:
-                    confidence = float(result.get('confidence', 0))
+                    confidence = float(result.get('data', {}).get('confidence', 0.5))
                 except (TypeError, ValueError):
-                    print(f"Warning: {agent_name} has invalid confidence value: {result.get('confidence')}")
-                    confidence = 0.0
+                    confidence = 0.5
                 
                 # Ensure confidence is between 0 and 1
                 confidence = max(0.0, min(1.0, confidence))
@@ -276,7 +265,16 @@ class CommitteeCoordinator:
                 # Get weight for this agent
                 weight = agent_weights.get(agent_name, 0.1)
                 
-                print(f"Agent {agent_name} - Confidence: {confidence}, Weight: {weight}")
+                # Calculate vote based on confidence
+                if confidence >= 0.7:
+                    vote = 'STRONG_INVEST' if confidence >= 0.8 else 'INVEST'
+                elif confidence >= 0.4:
+                    vote = 'CONSIDER'
+                else:
+                    vote = 'RISKY'
+                
+                # Store vote and update weighted confidence
+                votes.append((agent_name, vote, confidence))
                 weighted_confidence += confidence * weight
                 total_weight += weight
                 
@@ -285,31 +283,215 @@ class CommitteeCoordinator:
                 import traceback
                 traceback.print_exc()
         
-        # Normalize confidence
+        # Calculate average confidence and determine majority vote
         avg_confidence = (weighted_confidence / total_weight) if total_weight > 0 else 0
         
-        # Generate recommendation based on confidence
+        # Count votes
+        from collections import Counter
+        vote_counts = Counter(vote for _, vote, _ in votes)
+        majority_vote = vote_counts.most_common(1)[0][0] if vote_counts else 'CONSIDER'
+        
+        # Generate key debate points and dissenting opinions
+        key_debate_points = []
+        dissenting_opinions = []
+        
+        for agent_name, result in agent_results.items():
+            if not isinstance(result, dict) or not result.get('success', False):
+                continue
+                
+            data = result.get('data', {})
+            
+            # Add key insights as debate points
+            if 'key_insights' in data and isinstance(data['key_insights'], list):
+                key_debate_points.extend([
+                    f"{agent_name}: {insight}" 
+                    for insight in data['key_insights'][:2]  # Limit to top 2 insights per agent
+                ])
+            
+            # Add dissenting opinions and extract reasoning
+            agent_vote = next((vote for name, vote, _ in votes if name == agent_name), None)
+            
+            # Try to extract reasoning from different possible paths in the response
+            reasoning = (
+                data.get('reasoning') or 
+                data.get('analysis') or 
+                data.get('summary') or 
+                'No detailed reasoning provided by the agent.'
+            )
+            
+            if agent_vote and agent_vote != majority_vote:
+                dissenting_opinions.append(
+                    f"{agent_name} voted {agent_vote} because: {reasoning}"
+                )
+        
+        # Generate final recommendation
         if avg_confidence >= 0.7:
-            recommendation = "INVEST"
-            confidence_label = "High"
+            recommendation = 'INVEST' if avg_confidence < 0.8 else 'STRONG_INVEST'
+            confidence_label = 'High'
         elif avg_confidence >= 0.4:
-            recommendation = "CONSIDER"
-            confidence_label = "Medium"
+            recommendation = 'CONSIDER'
+            confidence_label = 'Medium'
         else:
-            recommendation = "PASS"
-            confidence_label = "Low"
+            recommendation = 'PASS'
+            confidence_label = 'Low'
         
-        # Generate reasons for the decision
-        reasons = self._generate_verdict_reasons(agent_results, avg_confidence)
+        # Prepare committee members data
+        committee_members = []
+        for agent_name, result in agent_results.items():
+            if not isinstance(result, dict) or not result.get('success', False):
+                continue
+                
+            data = result.get('data', {})
+            agent_vote = next((vote for name, vote, _ in votes if name == agent_name), majority_vote)
+            agent_confidence = next((conf for name, _, conf in votes if name == agent_name), avg_confidence)
+            
+            # Extract analysis text from different possible paths
+            analysis_text = (
+                data.get('analysis') or 
+                data.get('summary') or 
+                data.get('overview') or 
+                'Comprehensive analysis not available.'
+            )
+            
+            # If analysis is a dictionary, convert it to a readable string
+            if isinstance(analysis_text, dict):
+                analysis_text = '\n'.join(
+                    f"{k}: {v}" if not isinstance(v, (list, dict)) 
+                    else f"{k}: {', '.join(str(i) for i in v) if isinstance(v, list) else 'See details'}" 
+                    for k, v in analysis_text.items()
+                )
+            
+            committee_members.append({
+                'name': agent_name,
+                'role': f"Senior {agent_name.replace('_', ' ').title()}",
+                'personality': data.get('personality', 'Analytical and data-driven'),
+                'analysis': analysis_text,
+                'vote': agent_vote,
+                'confidence': agent_confidence * 100,  # Convert to percentage for display
+                'reasoning': reasoning  # Using the reasoning extracted earlier
+            })
         
-        return {
+        # Generate exit strategy for positive recommendations
+        exit_strategy = None
+        if recommendation in ['INVEST', 'STRONG_INVEST']:
+            exit_strategy = self._generate_exit_strategy(agent_results, recommendation)
+        
+        # Prepare base response
+        response = {
             'recommendation': recommendation,
             'confidence': avg_confidence,
             'confidence_label': confidence_label,
-            'reasons': reasons,
-            'timestamp': datetime.utcnow().isoformat()
+            'reasons': self._generate_verdict_reasons(agent_results, avg_confidence),
+            'timestamp': datetime.utcnow().isoformat(),
+            'committee_analysis': {
+                'members': committee_members,
+                'final_verdict': recommendation,
+                'consensus_score': avg_confidence,
+                'majority_vote': majority_vote,
+                'dissenting_opinions': dissenting_opinions[:3],  # Limit to top 3
+                'key_debate_points': key_debate_points[:5]  # Limit to top 5
+            }
         }
+        
+        # Add exit strategy if available
+        if exit_strategy:
+            response['exit_strategy'] = exit_strategy
+            
+        return response
     
+    def _generate_exit_strategy(self, agent_results: Dict[str, Any]) -> Dict[str, Any]:
+        """Generate exit strategy recommendations for positive investment cases."""
+        # Extract financial data from agent results
+        financial_data = {}
+        if 'FinanceExpert' in agent_results and agent_results['FinanceExpert'].get('success', False):
+            financial_data = agent_results['FinanceExpert'].get('data', {})
+            
+        # Extract market data
+        market_data = {}
+        if 'MarketExpert' in agent_results and agent_results['MarketExpert'].get('success', False):
+            market_data = agent_results['MarketExpert'].get('data', {})
+            
+        # Generate exit strategy using LLM
+        system_prompt = """You are an investment strategist. Based on the company's financials and market position, 
+        suggest potential exit strategies for investors. Consider:
+        1. Potential acquisition targets and estimated timeline
+        2. IPO potential and estimated timeline
+        3. Secondary market opportunities
+        4. Dividend potential
+        
+        Format your response as JSON with the following structure:
+        {
+            "exit_strategies": [
+                {
+                    "type": "acquisition" | "ipo" | "secondary" | "dividend",
+                    "description": string,
+                    "estimated_timeline_years": number,
+                    "potential_returns_multiple": number,
+                    "confidence": number (0-1),
+                    "key_risks": string[]
+                }
+            ],
+            "recommended_strategy": {
+                "type": string,
+                "reasoning": string,
+                "investment_structure": {
+                    "equity_percentage": string | null,
+                    "convertible_note_terms": string | null,
+                    "royalty_terms": string | null,
+                    "preferred_terms": string | null
+                }
+            }
+        }"""
+        
+        # Prepare context for the LLM
+        context = {
+            "financial_metrics": {
+                "revenue": financial_data.get('revenue_analysis', {}).get('revenue', 'Not specified'),
+                "growth_rate": financial_data.get('revenue_analysis', {}).get('growth_rate', 'Not specified'),
+                "profit_margin": financial_data.get('financial_health', {}).get('profit_margin', 'Not specified'),
+                "burn_rate": financial_data.get('financial_health', {}).get('burn_rate', 'Not specified')
+            },
+            "market_position": {
+                "market_size": market_data.get('market_analysis', {}).get('market_size', 'Not specified'),
+                "growth_potential": market_data.get('market_analysis', {}).get('growth_potential', 'Not specified'),
+                "competitive_landscape": market_data.get('competitive_analysis', {}).get('landscape', 'Not specified')
+            },
+            "company_stage": "early" if 'early' in str(financial_data).lower() or 'startup' in str(financial_data).lower() else "growth"
+        }
+        
+        # In a real implementation, you would call your LLM here
+        # For now, we'll return a placeholder response
+        return {
+            "exit_strategies": [
+                {
+                    "type": "acquisition",
+                    "description": "Potential acquisition by larger industry players looking to expand in this market segment.",
+                    "estimated_timeline_years": 3,
+                    "potential_returns_multiple": 5.0,
+                    "confidence": 0.7,
+                    "key_risks": ["Market consolidation", "Regulatory challenges"]
+                },
+                {
+                    "type": "ipo",
+                    "description": "Potential IPO if growth targets are met and market conditions remain favorable.",
+                    "estimated_timeline_years": 5,
+                    "potential_returns_multiple": 8.0,
+                    "confidence": 0.5,
+                    "key_risks": ["Market volatility", "Regulatory requirements"]
+                }
+            ],
+            "recommended_strategy": {
+                "type": "acquisition",
+                "reasoning": "The company's strong market position and growth potential make it an attractive acquisition target.",
+                "investment_structure": {
+                    "equity_percentage": "15-20%",
+                    "convertible_note_terms": "20% discount, $5M cap",
+                    "royalty_terms": "5% of revenue until 2x return",
+                    "preferred_terms": "1x liquidation preference, participating"
+                }
+            }
+        }
+
     def _generate_verdict_reasons(self, agent_results: Dict[str, Any], confidence: float) -> List[str]:
         """Generate human-readable reasons for the verdict."""
         reasons = []

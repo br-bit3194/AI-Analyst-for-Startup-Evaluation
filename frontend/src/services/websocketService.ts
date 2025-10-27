@@ -5,7 +5,13 @@ function getWebSocketUrl(path: string): string {
   return `${protocol}//${host}${path}`;
 }
 
-type ProgressCallback = (message: string, progress: number) => void;
+export interface ProgressUpdate {
+  message: string;
+  progress: number;
+  agentName?: string;
+}
+
+type ProgressCallback = (update: ProgressUpdate) => void;
 
 export class WebSocketService {
   private static instance: WebSocketService;
@@ -58,7 +64,11 @@ export class WebSocketService {
       try {
         const data = JSON.parse(event.data);
         if (data.type === 'progress_update') {
-          this.notifyCallbacks(data.message, data.progress);
+          this.notifyCallbacks({
+            message: data.message,
+            progress: data.progress,
+            agentName: data.agent_name
+          });
         }
       } catch (error) {
         console.error('Error processing WebSocket message:', error);
@@ -105,14 +115,8 @@ export class WebSocketService {
     this.callbacks = this.callbacks.filter(cb => cb !== callback);
   }
 
-  private notifyCallbacks(message: string, progress: number): void {
-    this.callbacks.forEach(callback => {
-      try {
-        callback(message, progress);
-      } catch (error) {
-        console.error('Error in progress callback:', error);
-      }
-    });
+  private notifyCallbacks(update: ProgressUpdate): void {
+    this.callbacks.forEach(callback => callback(update));
   }
 
   public disconnect(): void {

@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import type { AnalysisResponse } from '../../types/analysis';
+import { websocketService, type ProgressUpdate } from '../../services/websocketService';
 
 interface AnalysisResultsProps {
   analysis: AnalysisResponse;
@@ -8,6 +9,24 @@ interface AnalysisResultsProps {
 
 const AnalysisResults: React.FC<AnalysisResultsProps> = ({ analysis, className = '' }) => {
   // Check if we have the analysis data
+  const [currentAgent, setCurrentAgent] = useState<string>('');
+  
+  useEffect(() => {
+    if (analysis.status === 'processing') {
+      const handleProgressUpdate = (update: ProgressUpdate) => {
+        if (update.agentName) {
+          setCurrentAgent(update.agentName);
+        }
+      };
+      
+      websocketService.subscribe(handleProgressUpdate);
+      
+      return () => {
+        websocketService.unsubscribe(handleProgressUpdate);
+      };
+    }
+  }, [analysis.status]);
+  
   const hasResults = analysis.status === 'completed' && analysis.result;
   
   if (!hasResults) {
@@ -22,7 +41,9 @@ const AnalysisResults: React.FC<AnalysisResultsProps> = ({ analysis, className =
           <div className="mt-4">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto"></div>
             <p className="mt-2 text-sm text-blue-400">
-              {analysis.message || 'Analyzing pitch and website data...'}
+              {currentAgent 
+                ? `${currentAgent} is analyzing...` 
+                : analysis.message || 'Analyzing pitch and website data...'}
             </p>
             {analysis.progress && (
               <div className="mt-2 w-full bg-gray-700 rounded-full h-2.5">
@@ -376,38 +397,132 @@ const AnalysisResults: React.FC<AnalysisResultsProps> = ({ analysis, className =
           {RiskAnalyst && renderAgentAnalysis(RiskAnalyst, 'Risk Analysis')}
         </div>
 
-        {/* Committee Debate */}
-        {result?.committee_debate && Array.isArray(result.committee_debate) && result.committee_debate.length > 0 && (
+        {/* Committee Analysis */}
+        {result?.committee_analysis && (
           <div className="mt-8">
-            <h3 className="text-lg font-semibold mb-3 text-gray-800">Committee Debate</h3>
-            <div className="space-y-4">
-              {result.committee_debate.map((debate: any, index: number) => (
-                <div key={index} className="border-l-4 border-blue-200 pl-4 py-2">
-                  <div className="flex justify-between items-start">
-                    <h4 className="font-medium text-gray-800">{debate.member || 'Committee Member'}</h4>
-                    <span className="text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full">
-                      {debate.role || 'Member'}
-                    </span>
-                  </div>
-                  <p className="text-gray-600 text-sm mt-1">{debate.comment}</p>
-                  {debate.sentiment && (
-                    <span className={`inline-block mt-1 text-xs px-2 py-0.5 rounded-full ${
-                      debate.sentiment === 'positive' ? 'bg-green-100 text-green-800' :
-                      debate.sentiment === 'negative' ? 'bg-red-100 text-red-800' :
-                      'bg-gray-100 text-gray-800'
+            <h3 className="text-2xl font-bold mb-6 text-gray-800 border-b pb-2">Investment Committee Analysis</h3>
+            
+            {/* Consensus Summary */}
+            <div className="bg-blue-50 p-6 rounded-xl border border-blue-100 mb-8">
+              <div className="flex flex-col md:flex-row md:items-center justify-between">
+                <div>
+                  <h4 className="text-lg font-semibold text-gray-800">Final Committee Verdict</h4>
+                  <div className="flex items-center mt-2">
+                    <span className={`px-4 py-2 rounded-full text-lg font-bold ${
+                      result.committee_analysis.final_verdict === 'STRONG_INVEST' ? 'bg-green-100 text-green-800' :
+                      result.committee_analysis.final_verdict === 'INVEST' ? 'bg-blue-100 text-blue-800' :
+                      result.committee_analysis.final_verdict === 'CONSIDER' ? 'bg-amber-100 text-amber-800' :
+                      'bg-red-100 text-red-800'
                     }`}>
-                      {debate.sentiment.charAt(0).toUpperCase() + debate.sentiment.slice(1)}
+                      {result.committee_analysis.final_verdict}
                     </span>
+                    <div className="ml-4">
+                      <div className="text-sm text-gray-600">Confidence</div>
+                      <div className="text-xl font-bold">
+                        {Math.round((result.committee_analysis.consensus_score || 0) * 100)}%
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                {result.committee_analysis.majority_vote && (
+                  <div className="mt-4 md:mt-0">
+                    <div className="text-sm text-gray-600">Majority Vote</div>
+                    <div className="text-lg font-semibold">
+                      {result.committee_analysis.majority_vote}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Committee Members */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+              {result.committee_analysis.members?.map((member: any, index: number) => (
+                <div key={index} className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
+                  <div className="flex items-center mb-4">
+                    <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold text-xl mr-4">
+                      {member.name.charAt(0)}
+                    </div>
+                    <div>
+                      <h4 className="font-semibold text-gray-900">{member.name}</h4>
+                      <p className="text-sm text-gray-600">{member.role}</p>
+                    </div>
+                    <div className="ml-auto">
+                      <span className={`px-3 py-1 rounded-full text-sm font-medium ${
+                        member.vote === 'STRONG_INVEST' || member.vote === 'INVEST' ? 'bg-green-100 text-green-800' :
+                        member.vote === 'CONSIDER' ? 'bg-amber-100 text-amber-800' :
+                        'bg-red-100 text-red-800'
+                      }`}>
+                        {member.vote}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="mb-4">
+                    <div className="flex justify-between text-sm text-gray-600 mb-1">
+                      <span>Confidence</span>
+                      <span>{Math.round(member.confidence || 0)}%</span>
+                    </div>
+                    <div className="w-full bg-gray-200 rounded-full h-2">
+                      <div 
+                        className="bg-blue-600 h-2 rounded-full"
+                        style={{ width: `${member.confidence || 0}%` }}
+                      ></div>
+                    </div>
+                  </div>
+                  <div>
+                    <h5 className="text-sm font-medium text-gray-700 mb-1">Analysis</h5>
+                    <p className="text-sm text-gray-600 whitespace-pre-line">{member.analysis}</p>
+                  </div>
+                  {member.reasoning && (
+                    <div className="mt-3 pt-3 border-t border-gray-100">
+                      <h5 className="text-sm font-medium text-gray-700 mb-1">Reasoning</h5>
+                      <p className="text-sm text-gray-600 whitespace-pre-line">{member.reasoning}</p>
+                    </div>
                   )}
                 </div>
               ))}
             </div>
+
+            {/* Key Debate Points */}
+            {result.committee_analysis.key_debate_points?.length > 0 && (
+              <div className="mb-8">
+                <h4 className="text-lg font-semibold mb-3 text-gray-800">Key Debate Points</h4>
+                <div className="space-y-3">
+                  {result.committee_analysis.key_debate_points.map((point: string, index: number) => (
+                    <div key={index} className="flex items-start">
+                      <div className="flex-shrink-0 mt-1 w-2 h-2 rounded-full bg-blue-500 mr-3"></div>
+                      <p className="text-gray-700">{point}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Dissenting Opinions */}
+            {result.committee_analysis.dissenting_opinions?.length > 0 && (
+              <div className="bg-red-50 p-6 rounded-xl border border-red-100">
+                <h4 className="text-lg font-semibold mb-3 text-red-800">Dissenting Opinions</h4>
+                <div className="space-y-4">
+                  {result.committee_analysis.dissenting_opinions.map((opinion: string, index: number) => (
+                    <div key={index} className="flex">
+                      <div className="flex-shrink-0">
+                        <div className="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center text-red-600">
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                          </svg>
+                        </div>
+                      </div>
+                      <div className="ml-3">
+                        <p className="text-sm text-red-700">{opinion}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>
-
-      {/* Render Committee Debate */}
-      {result?.committee_debate && renderCommitteeDebate(result.committee_debate)}
     </div>
   );
 };

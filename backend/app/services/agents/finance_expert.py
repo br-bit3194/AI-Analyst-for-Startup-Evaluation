@@ -1,4 +1,7 @@
-from typing import Dict, Any
+from typing import Dict, Any, Optional
+import aiohttp
+import json
+from urllib.parse import quote_plus
 from ..llm_client import call_llm
 from .base_agent import BaseAgent, AgentResponse
 
@@ -8,10 +11,55 @@ class FinanceExpert(BaseAgent):
     def __init__(self):
         super().__init__(name="FinanceExpert", role="Analyze financial health and projections")
     
+    async def _scrape_valuation_data(self, company_name: str) -> Optional[Dict[str, Any]]:
+        """Scrape valuation data from the web."""
+        if not company_name:
+            return None
+            
+        try:
+            # Extract company name from pitch (simple implementation)
+            # In a real implementation, you might want to use NER or ask the LLM to extract the company name
+            search_query = f"{company_name} valuation site:crunchbase.com OR site:techcrunch.com OR site:wsj.com"
+            search_url = f"https://www.google.com/search?q={quote_plus(search_query)}"
+            
+            headers = {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+            }
+            
+            async with aiohttp.ClientSession() as session:
+                async with session.get(search_url, headers=headers) as response:
+                    if response.status == 200:
+                        text = await response.text()
+                        # In a real implementation, you would parse the HTML to extract valuation data
+                        # This is a simplified example
+                        return {
+                            'source': 'web_search',
+                            'search_url': search_url,
+                            'snippet': text[:500] + '...'  # Just get a preview
+                        }
+        except Exception as e:
+            print(f"Error scraping valuation data: {str(e)}")
+            return None
+        
+        return None
+
     async def analyze(self, input_data: Dict[str, Any]) -> AgentResponse:
         """Analyze the financial aspects of the pitch."""
         try:
             pitch = input_data.get('pitch', '')
+            
+            # Extract company name for web search (simple implementation)
+            company_name = None
+            # Look for company name in pitch (simple regex, can be improved)
+            import re
+            name_matches = re.findall(r'(?:[A-Z][a-z]+\s+){1,3}(?:Inc\.?|Ltd\.?|LLC|Corp\.?|Pty\s+Ltd\.?|GmbH)\b', pitch)
+            if name_matches:
+                company_name = name_matches[0]
+            
+            # Scrape valuation data in parallel with LLM analysis
+            valuation_data = {}
+            if company_name:
+                valuation_data = await self._scrape_valuation_data(company_name)
             
             system_prompt = """You are a Financial Expert evaluating a startup's financial health and projections. Analyze:
             1. Revenue model and pricing strategy
@@ -19,6 +67,7 @@ class FinanceExpert(BaseAgent):
             3. Burn rate and runway
             4. Financial projections and assumptions
             5. Key metrics (CAC, LTV, MRR, etc.)
+            6. Company valuation based on available data
             
             For each aspect, provide:
             - Analysis of current state
@@ -49,12 +98,24 @@ class FinanceExpert(BaseAgent):
                     "sensitivity_analysis": string,
                     "red_flags": string[]
                 },
+                "company_valuation": {
+                    "estimated_valuation": number | null,
+                    "valuation_method": string,
+                    "comparable_companies": string[],
+                    "confidence": number,
+                    "data_sources": string[]
+                },
                 "confidence": number
             }"""
             
+            # Add valuation data to the prompt if available
+            user_prompt = pitch
+            if valuation_data:
+                user_prompt += f"\n\nAdditional valuation data from web search:\n{json.dumps(valuation_data, indent=2)}"
+            
             response = await call_llm(
                 system_prompt=system_prompt,
-                user_prompt=pitch,
+                user_prompt=user_prompt,
                 model="gemini-2.5-pro"
             )
             
