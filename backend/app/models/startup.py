@@ -49,7 +49,7 @@ class StartupAnalysis(BaseModel):
         json_encoders = {
             datetime: lambda v: v.isoformat(),
         }
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "analysis_id": "analysis_123",
                 "status": "completed",

@@ -16,12 +16,12 @@ const nextConfig = {
       // Proxy all API requests to the FastAPI backend
       {
         source: '/api/:path*',
-        destination: 'https://ai-analyst-for-startup-evaluation.onrender.com/api/:path*',
+        destination: 'http://localhost:8000/api/:path*',
       },
       // Also proxy the analysis endpoint
       {
         source: '/analysis/:path*',
-        destination: 'https://ai-analyst-for-startup-evaluation.onrender.com/analysis/:path*',
+        destination: 'http://localhost:8000/analysis/:path*',
       },
     ];
   },

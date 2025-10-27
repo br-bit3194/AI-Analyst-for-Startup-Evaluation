@@ -1,6 +1,6 @@
 import type { DealAnalysis } from "../types";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://ai-analyst-for-startup-evaluation.onrender.com';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
 export async function analyzeDeal(pitch: string): Promise<DealAnalysis> {
   try {

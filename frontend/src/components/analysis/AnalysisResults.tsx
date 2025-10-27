@@ -46,8 +46,11 @@ const AnalysisResults: React.FC<AnalysisResultsProps> = ({ analysis, className =
   const { result } = analysis;
   
   // Extract agent analyses
-  const { agents, final_verdict } = result || {};
-  const { RiskAnalyst, MarketExpert, FinanceExpert, CompetitiveAnalyst, TeamEvaluator } = agents || {};
+  const { agents = {}, final_verdict } = result || {};
+  const { RiskAnalyst, MarketExpert, FinanceExpert, CompetitiveAnalyst, TeamEvaluator } = agents;
+  
+  // Debug log to check the competitive analysis data
+  console.log('CompetitiveAnalyst data:', CompetitiveAnalyst);
 
   // Get verdict from final_verdict
   const verdict = final_verdict?.recommendation || 'UNKNOWN';
@@ -216,11 +219,162 @@ const AnalysisResults: React.FC<AnalysisResultsProps> = ({ analysis, className =
         )}
 
         {/* Agent Analyses */}
-        {FinanceExpert && renderAgentAnalysis(FinanceExpert, 'Financial Analysis')}
-        {CompetitiveAnalyst && renderAgentAnalysis(CompetitiveAnalyst, 'Competitive Analysis')}
-        {TeamEvaluator && renderAgentAnalysis(TeamEvaluator, 'Team Evaluation')}
-        {MarketExpert && renderAgentAnalysis(MarketExpert, 'Market Analysis')}
-        {RiskAnalyst && renderAgentAnalysis(RiskAnalyst, 'Risk Analysis')}
+        <div className="space-y-8">
+          {FinanceExpert && renderAgentAnalysis(FinanceExpert, 'Financial Analysis')}
+          
+          {/* Enhanced Competitive Analysis Section */}
+          {CompetitiveAnalyst?.success && (
+            <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
+              <h3 className="text-xl font-semibold mb-4 text-gray-800">Competitive Analysis</h3>
+              
+              {CompetitiveAnalyst.data?.competitive_landscape ? (
+                <div className="space-y-6">
+                  {/* Direct Competitors */}
+                  {CompetitiveAnalyst.data.competitive_landscape.direct_competitors?.length > 0 && (
+                    <div>
+                      <h4 className="font-medium text-gray-700 mb-2">Direct Competitors</h4>
+                      <div className="grid md:grid-cols-2 gap-4">
+                        {CompetitiveAnalyst.data.competitive_landscape.direct_competitors.map((competitor: any, idx: number) => (
+                          <div key={idx} className="p-4 border rounded-lg bg-gray-50">
+                            <h5 className="font-medium text-gray-800">{competitor.name || `Competitor ${idx + 1}`}</h5>
+                            
+                            {competitor.strengths?.length > 0 && (
+                              <div className="mt-2">
+                                <span className="text-sm font-medium text-green-700">Strengths:</span>
+                                <ul className="list-disc pl-5 mt-1">
+                                  {competitor.strengths.map((strength: string, i: number) => (
+                                    <li key={i} className="text-sm text-gray-600">{strength}</li>
+                                  ))}
+                                </ul>
+                              </div>
+                            )}
+                            
+                            {competitor.weaknesses?.length > 0 && (
+                              <div className="mt-2">
+                                <span className="text-sm font-medium text-red-700">Weaknesses:</span>
+                                <ul className="list-disc pl-5 mt-1">
+                                  {competitor.weaknesses.map((weakness: string, i: number) => (
+                                    <li key={i} className="text-sm text-gray-600">{weakness}</li>
+                                  ))}
+                                </ul>
+                              </div>
+                            )}
+                            
+                            {competitor.differentiation && (
+                              <div className="mt-2">
+                                <span className="text-sm font-medium text-blue-700">Differentiation:</span>
+                                <p className="text-sm text-gray-600 mt-1">{competitor.differentiation}</p>
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Market Position */}
+                  {CompetitiveAnalyst.data.competitive_landscape.market_position && (
+                    <div className="bg-blue-50 p-4 rounded-lg border border-blue-100">
+                      <h4 className="font-medium text-blue-800 mb-2">Market Position</h4>
+                      <div className="grid md:grid-cols-3 gap-4">
+                        <div>
+                          <p className="text-sm font-medium text-gray-700">Positioning</p>
+                          <p className="text-sm text-gray-600">{CompetitiveAnalyst.data.competitive_landscape.market_position.positioning || 'N/A'}</p>
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-gray-700">Unique Value Prop</p>
+                          <p className="text-sm text-gray-600">{CompetitiveAnalyst.data.competitive_landscape.market_position.unique_value_prop || 'N/A'}</p>
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-gray-700">Competitive Moat</p>
+                          <p className="text-sm text-gray-600">{CompetitiveAnalyst.data.competitive_landscape.market_position.moat || 'N/A'}</p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Threat Analysis */}
+                  {CompetitiveAnalyst.data.competitive_landscape.threat_analysis && (
+                    <div className="bg-red-50 p-4 rounded-lg border border-red-100">
+                      <h4 className="font-medium text-red-800 mb-3">Threat Analysis</h4>
+                      <div className="grid md:grid-cols-3 gap-4">
+                        {CompetitiveAnalyst.data.competitive_landscape.threat_analysis.incumbent_threats?.length > 0 && (
+                          <div>
+                            <p className="text-sm font-medium text-red-700">Incumbent Threats</p>
+                            <ul className="list-disc pl-5 mt-1">
+                              {CompetitiveAnalyst.data.competitive_landscape.threat_analysis.incumbent_threats.map((threat: string, i: number) => (
+                                <li key={i} className="text-sm text-red-600">{threat}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                        
+                        {CompetitiveAnalyst.data.competitive_landscape.threat_analysis.new_entrant_risks?.length > 0 && (
+                          <div>
+                            <p className="text-sm font-medium text-red-700">New Entrant Risks</p>
+                            <ul className="list-disc pl-5 mt-1">
+                              {CompetitiveAnalyst.data.competitive_landscape.threat_analysis.new_entrant_risks.map((risk: string, i: number) => (
+                                <li key={i} className="text-sm text-red-600">{risk}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                        
+                        {CompetitiveAnalyst.data.competitive_landscape.threat_analysis.substitute_products?.length > 0 && (
+                          <div>
+                            <p className="text-sm font-medium text-red-700">Substitute Products</p>
+                            <ul className="list-disc pl-5 mt-1">
+                              {CompetitiveAnalyst.data.competitive_landscape.threat_analysis.substitute_products.map((sub: string, i: number) => (
+                                <li key={i} className="text-sm text-red-600">{sub}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Barriers to Entry */}
+                  {CompetitiveAnalyst.data.competitive_landscape.barriers_to_entry && (
+                    <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-100">
+                      <h4 className="font-medium text-yellow-800 mb-3">Barriers to Entry</h4>
+                      <div className="grid md:grid-cols-2 gap-4">
+                        <div>
+                          <p className="text-sm font-medium text-yellow-700">Existing Barriers</p>
+                          <ul className="list-disc pl-5 mt-1">
+                            {CompetitiveAnalyst.data.competitive_landscape.barriers_to_entry.existing?.map((barrier: string, i: number) => (
+                              <li key={i} className="text-sm text-yellow-700">{barrier}</li>
+                            )) || <li className="text-sm text-gray-500">None identified</li>}
+                          </ul>
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-yellow-700">Potential Barriers</p>
+                          <ul className="list-disc pl-5 mt-1">
+                            {CompetitiveAnalyst.data.competitive_landscape.barriers_to_entry.potential?.map((barrier: string, i: number) => (
+                              <li key={i} className="text-sm text-yellow-700">{barrier}</li>
+                            )) || <li className="text-sm text-gray-500">None identified</li>}
+                          </ul>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="text-gray-500">
+                  {CompetitiveAnalyst.data ? (
+                    <p>No competitive landscape data available in the expected format.</p>
+                  ) : (
+                    <p>No competitive analysis data available.</p>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+          
+          {TeamEvaluator && renderAgentAnalysis(TeamEvaluator, 'Team Evaluation')}
+          {MarketExpert && renderAgentAnalysis(MarketExpert, 'Market Analysis')}
+          {RiskAnalyst && renderAgentAnalysis(RiskAnalyst, 'Risk Analysis')}
+        </div>
 
         {/* Committee Debate */}
         {result?.committee_debate && Array.isArray(result.committee_debate) && result.committee_debate.length > 0 && (

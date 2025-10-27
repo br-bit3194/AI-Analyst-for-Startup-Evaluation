@@ -17,7 +17,7 @@ class AgentContextRequest(BaseModel):
     threshold: float = Field(0.7, description="Minimum similarity score for including results", ge=0.0, le=1.0)
     
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "startup_id": "startup_123",
                 "agent_role": "market_analyst",

@@ -27,7 +27,7 @@ const DealInput: React.FC<DealInputProps> = ({
 
   const pollAnalysisStatus = async (analysisId: string, retries = 30, interval = 2000): Promise<AnalysisResponse> => {
     try {
-      const response = await fetch(`https://ai-analyst-for-startup-evaluation.onrender.com/api/analysis/${analysisId}`);
+      const response = await fetch(`http://localhost:8000/api/analysis/${analysisId}`);
       const result = await response.json();
 
       if (!response.ok) {
@@ -130,7 +130,7 @@ const DealInput: React.FC<DealInputProps> = ({
       setProgressMessage('Initializing analysis...');
       
       // Start the analysis API call
-      const startResponse = await fetch('https://ai-analyst-for-startup-evaluation.onrender.com/api/analysis', {
+      const startResponse = await fetch('http://localhost:8000/api/analysis', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
