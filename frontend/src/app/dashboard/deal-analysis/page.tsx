@@ -159,8 +159,8 @@ To build India's most trusted and scalable e-waste reverse logistics platform, m
         </div>
       )}
       <div className="flex justify-center">
-      <div className="w-full max-w-3xl">
-        <div className="bg-white/80 backdrop-blur-sm rounded-xl p-8 shadow-sm">
+      <div className="w-full max-w-5xl">
+          <div className="bg-white/90 backdrop-blur-sm rounded-xl p-8 shadow-sm w-full">
           <div className="mb-8">
             <h1 className="text-2xl font-bold text-gray-900">Deal Analysis</h1>
             <p className="text-gray-700 mt-1">Analyze and evaluate new startup opportunities with comprehensive due diligence.</p>
@@ -262,20 +262,219 @@ To build India's most trusted and scalable e-waste reverse logistics platform, m
 
           {/* Analysis Results */}
           {analysisStatus === 'completed' && analysisResult && (
-            <div className="mt-8 p-6 bg-white rounded-lg shadow">
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-xl font-bold text-gray-900">Analysis Results</h2>
-                <button
-                  onClick={resetAnalysis}
-                  className="text-sm text-blue-600 hover:text-blue-800"
-                >
-                  New Analysis
-                </button>
+            <div className="mt-8 bg-white rounded-lg shadow-lg overflow-hidden">
+              <div className="bg-gradient-to-r from-blue-600 to-blue-800 px-6 py-4">
+                <div className="flex justify-between items-center">
+                  <h2 className="text-xl font-bold text-white">Analysis Results</h2>
+                  <button
+                    onClick={resetAnalysis}
+                    className="px-3 py-1 text-sm font-medium text-white bg-blue-700 hover:bg-blue-800 rounded-md transition-colors"
+                  >
+                    New Analysis
+                  </button>
+                </div>
               </div>
-              <div className="prose max-w-none">
-                <pre className="whitespace-pre-wrap">
-                  {JSON.stringify(analysisResult, null, 2)}
-                </pre>
+              
+              <div className="p-6 space-y-8">
+                {/* Overview Section */}
+                {analysisResult.overall && (
+                  <div className="bg-blue-50 p-4 rounded-lg border border-blue-100">
+                    <h3 className="text-lg font-semibold text-gray-900 mb-3 flex items-center">
+                      <FileSearch className="h-5 w-5 mr-2 text-blue-600" />
+                      Overall Assessment
+                    </h3>
+                    <div className="prose prose-blue max-w-none">
+                      <p className="text-gray-700">{analysisResult.overall.summary}</p>
+                      <div className="mt-3 flex items-center text-sm text-gray-600">
+                        <span className="font-medium">Confidence:</span>
+                        <span className="ml-2 px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                          {Math.round(analysisResult.overall.confidence * 100)}%
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Market Analysis */}
+                {analysisResult.market_analysis && (
+                  <div className="border rounded-lg overflow-hidden">
+                    <div className="bg-gray-50 px-4 py-3 border-b">
+                      <h3 className="text-lg font-semibold text-gray-900 flex items-center">
+                        <BarChart className="h-5 w-5 mr-2 text-blue-600" />
+                        Market Analysis
+                      </h3>
+                    </div>
+                    <div className="p-4 space-y-4">
+                      {analysisResult.market_analysis.market_size && (
+                        <div>
+                          <h4 className="font-medium text-gray-900 mb-1">Market Size</h4>
+                          <p className="text-gray-700">{analysisResult.market_analysis.market_size}</p>
+                        </div>
+                      )}
+                      
+                      {analysisResult.market_analysis.growth_rate && (
+                        <div>
+                          <h4 className="font-medium text-gray-900 mb-1">Growth Rate</h4>
+                          <p className="text-gray-700">{analysisResult.market_analysis.growth_rate}</p>
+                        </div>
+                      )}
+
+                      {analysisResult.market_analysis.customer_segments && (
+                        <div>
+                          <h4 className="font-medium text-gray-900 mb-2">Customer Segments</h4>
+                          <ul className="list-disc pl-5 space-y-1 text-gray-700">
+                            {analysisResult.market_analysis.customer_segments.map((segment: string, index: number) => (
+                              <li key={index}>{segment}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Financial Analysis */}
+                {analysisResult.financial_analysis && (
+                  <div className="border rounded-lg overflow-hidden">
+                    <div className="bg-gray-50 px-4 py-3 border-b">
+                      <h3 className="text-lg font-semibold text-gray-900 flex items-center">
+                        <TrendingUp className="h-5 w-5 mr-2 text-green-600" />
+                        Financial Analysis
+                      </h3>
+                    </div>
+                    <div className="p-4 space-y-4">
+                      {analysisResult.financial_analysis.revenue_model && (
+                        <div>
+                          <h4 className="font-medium text-gray-900 mb-1">Revenue Model</h4>
+                          <p className="text-gray-700">{analysisResult.financial_analysis.revenue_model}</p>
+                        </div>
+                      )}
+                      
+                      {analysisResult.financial_analysis.burn_rate && (
+                        <div>
+                          <h4 className="font-medium text-gray-900 mb-1">Burn Rate</h4>
+                          <p className="text-gray-700">{analysisResult.financial_analysis.burn_rate}</p>
+                        </div>
+                      )}
+
+                      {analysisResult.financial_analysis.metrics && (
+                        <div>
+                          <h4 className="font-medium text-gray-900 mb-2">Key Metrics</h4>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {Object.entries(analysisResult.financial_analysis.metrics).map(([key, value]) => (
+                              <div key={key} className="bg-gray-50 p-3 rounded border">
+                                <div className="text-sm font-medium text-gray-500">
+                                  {key.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}
+                                </div>
+                                <div className="mt-1 text-lg font-semibold text-gray-900">
+                                  {typeof value === 'number' ? value.toLocaleString() : value}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Team Analysis */}
+                {analysisResult.team_analysis && (
+                  <div className="border rounded-lg overflow-hidden">
+                    <div className="bg-gray-50 px-4 py-3 border-b">
+                      <h3 className="text-lg font-semibold text-gray-900 flex items-center">
+                        <Users className="h-5 w-5 mr-2 text-purple-600" />
+                        Team Analysis
+                      </h3>
+                    </div>
+                    <div className="p-4 space-y-4">
+                      {analysisResult.team_analysis.team_strengths && (
+                        <div>
+                          <h4 className="font-medium text-gray-900 mb-2">Team Strengths</h4>
+                          <ul className="list-disc pl-5 space-y-1 text-gray-700">
+                            {analysisResult.team_analysis.team_strengths.map((strength: string, index: number) => (
+                              <li key={index}>{strength}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+
+                      {analysisResult.team_analysis.key_team_members && (
+                        <div>
+                          <h4 className="font-medium text-gray-900 mb-2">Key Team Members</h4>
+                          <div className="space-y-4">
+                            {analysisResult.team_analysis.key_team_members.map((member: any, index: number) => (
+                              <div key={index} className="border rounded-lg p-3">
+                                <div className="font-medium text-gray-900">{member.name}</div>
+                                <div className="text-sm text-gray-600">{member.role}</div>
+                                {member.experience && (
+                                  <div className="mt-1 text-sm text-gray-700">{member.experience}</div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Risk Assessment */}
+                {analysisResult.risk_assessment && (
+                  <div className="border border-red-100 rounded-lg overflow-hidden">
+                    <div className="bg-red-50 px-4 py-3 border-b border-red-100">
+                      <h3 className="text-lg font-semibold text-red-900 flex items-center">
+                        <Zap className="h-5 w-5 mr-2 text-red-600" />
+                        Risk Assessment
+                      </h3>
+                    </div>
+                    <div className="p-4 space-y-4">
+                      {analysisResult.risk_assessment.key_risks && (
+                        <div>
+                          <h4 className="font-medium text-gray-900 mb-2">Key Risks</h4>
+                          <ul className="space-y-2">
+                            {analysisResult.risk_assessment.key_risks.map((risk: any, index: number) => (
+                              <li key={index} className="flex items-start">
+                                <span className="flex-shrink-0 h-5 w-5 text-red-500">•</span>
+                                <span className="ml-2 text-gray-700">
+                                  <span className="font-medium">{risk.risk}</span>
+                                  {risk.impact && (
+                                    <span className="ml-2 text-sm bg-red-100 text-red-800 px-2 py-0.5 rounded-full">
+                                      Impact: {risk.impact}
+                                    </span>
+                                  )}
+                                  {risk.mitigation && (
+                                    <p className="mt-1 text-sm text-gray-600">
+                                      <span className="font-medium">Mitigation:</span> {risk.mitigation}
+                                    </p>
+                                  )}
+                                </span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+              
+              {/* Raw JSON Toggle (for debugging) */}
+              <div className="border-t border-gray-200 px-6 py-3 bg-gray-50">
+                <details className="group">
+                  <summary className="flex items-center text-sm font-medium text-gray-500 hover:text-gray-700 cursor-pointer">
+                    <span>View Raw Analysis Data</span>
+                    <svg className="ml-1.5 h-5 w-5 flex-shrink-0 transition-transform group-open:rotate-180" 
+                         xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" />
+                    </svg>
+                  </summary>
+                  <div className="mt-2 bg-gray-50 p-4 rounded border border-gray-200 overflow-auto max-h-96">
+                    <pre className="text-xs text-gray-700">
+                      {JSON.stringify(analysisResult, null, 2)}
+                    </pre>
+                  </div>
+                </details>
               </div>
             </div>
           )}

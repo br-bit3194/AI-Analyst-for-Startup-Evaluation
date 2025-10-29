@@ -73,30 +73,9 @@ export function SidebarContent() {
           />
           <SidebarLink
             link={{
-              label: "Analytics",
+              label: "Past Deals",
               href: "/dashboard/analytics",
               icon: <BarChart3 className="h-5 w-5" />,
-            }}
-          />
-          <SidebarLink
-            link={{
-              label: "Documents",
-              href: "/dashboard/documents",
-              icon: <FileText className="h-5 w-5" />,
-            }}
-          />
-          <SidebarLink
-            link={{
-              label: "Team",
-              href: "/dashboard/team",
-              icon: <Users className="h-5 w-5" />,
-            }}
-          />
-          <SidebarLink
-            link={{
-              label: "Messages",
-              href: "/dashboard/messages",
-              icon: <MessageSquare className="h-5 w-5" />,
             }}
           />
         </SidebarSection>

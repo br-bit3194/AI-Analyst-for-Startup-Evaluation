@@ -3,12 +3,24 @@
 import * as React from "react"
 import { useState } from "react"
 import { motion, AnimatePresence } from "framer-motion"
-import { Menu, X } from "lucide-react"
+import { Menu, X, User, LogOut } from "lucide-react"
 import Image from "next/image"
+import { useAuth } from "@/contexts/AuthContext"
+import { Button } from "./button"
+import Link from "next/link"
 
 const Navbar1 = () => {
   const [isOpen, setIsOpen] = useState(false)
+  const { user, signInWithGoogle, signOut } = useAuth()
   const toggleMenu = () => setIsOpen(!isOpen)
+
+  const handleSignIn = async () => {
+    try {
+      await signInWithGoogle()
+    } catch (error) {
+      console.error('Error signing in:', error)
+    }
+  }
 
   return (
     <div className="fixed top-0 left-0 right-0 z-50">
@@ -16,7 +28,7 @@ const Navbar1 = () => {
         <div className="flex items-center justify-between px-6 py-3 bg-white/80 backdrop-blur-sm rounded-full shadow-lg w-full max-w-7xl relative z-10">
           <div className="flex items-center">
             <motion.div
-              className="w-10 h-10 mr-6 overflow-hidden rounded-full"
+              className="w-10 h-10 overflow-hidden rounded-full"
               initial={{ scale: 0.8 }}
               animate={{ scale: 1 }}
               whileHover={{ rotate: 10 }}
@@ -31,40 +43,66 @@ const Navbar1 = () => {
                 priority
               />
             </motion.div>
+            
+            {/* Desktop Navigation Links - Left side */}
+            <nav className="hidden md:flex items-center space-x-6 ml-6">
+              {["Home", "Features", "Pricing", "About"].map((item) => (
+                <motion.div
+                  key={item}
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.3 }}
+                  whileHover={{ scale: 1.05 }}
+                >
+                  <a 
+                    href={`#${item.toLowerCase()}`} 
+                    className="text-sm text-gray-900 hover:text-primary transition-colors font-medium"
+                  >
+                    {item}
+                  </a>
+                </motion.div>
+              ))}
+            </nav>
           </div>
-        
-          {/* Desktop Navigation */}
-          <nav className="hidden md:flex items-center space-x-8">
-            {["Home", "Features", "Pricing", "About"].map((item) => (
+          
+          {/* Auth Buttons - Right side */}
+          <div className="flex items-center">
+            {user ? (
               <motion.div
-                key={item}
-                initial={{ opacity: 0, y: -10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.3 }}
-                whileHover={{ scale: 1.05 }}
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.3, delay: 0.2 }}
+                className="flex items-center space-x-4"
               >
-                <a href={`#${item.toLowerCase()}`} className="text-sm text-gray-900 hover:text-primary transition-colors font-medium">
-                  {item}
-                </a>
+                <span className="text-sm font-medium text-gray-700">
+                  {user.displayName || 'User'}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={signOut}
+                  className="flex items-center space-x-2"
+                >
+                  <LogOut className="h-4 w-4" />
+                  <span>Sign Out</span>
+                </Button>
               </motion.div>
-            ))}
-          </nav>
-
-          {/* Desktop CTA Button */}
-          <motion.div
-            className="hidden md:block"
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.3, delay: 0.2 }}
-            whileHover={{ scale: 1.05 }}
-          >
-            <a
-              href="#contact"
-              className="inline-flex items-center justify-center px-5 py-2 text-sm text-gray-900 font-medium bg-primary rounded-full hover:bg-primary/90 transition-colors"
-            >
-              Get Started
-            </a>
-          </motion.div>
+            ) : (
+              <motion.div
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.3, delay: 0.2 }}
+              >
+                <Button
+                  onClick={handleSignIn}
+                  className="flex items-center space-x-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white shadow-md hover:shadow-lg transition-all duration-200"
+                >
+                  <User className="h-4 w-4" />
+                  <span>Sign In</span>
+                </Button>
+              </motion.div>
+            )}
+          </div>
 
           {/* Mobile Menu Button */}
           <motion.button 
@@ -98,40 +136,47 @@ const Navbar1 = () => {
               >
                 <X className="h-6 w-6 text-gray-900" />
               </motion.button>
-              <div className="flex flex-col space-y-6">
-                {["Home", "Features", "Pricing", "About"].map((item, i) => (
-                  <motion.div
+              <div className="flex flex-col space-y-4">
+                {["Home", "Features", "Pricing", "About"].map((item) => (
+                  <Link
                     key={item}
-                    initial={{ opacity: 0, x: 20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: i * 0.1 + 0.1 }}
-                    exit={{ opacity: 0, x: 20 }}
+                    href={`#${item.toLowerCase()}`}
+                    className="text-lg text-gray-900 hover:text-primary transition-colors py-2"
+                    onClick={() => setIsOpen(false)}
                   >
-                    <a 
-                      href={`#${item.toLowerCase()}`} 
-                      className="text-base text-gray-900 font-medium hover:text-primary" 
-                      onClick={toggleMenu}
-                    >
-                      {item}
-                    </a>
-                  </motion.div>
+                    {item}
+                  </Link>
                 ))}
-
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.5 }}
-                  exit={{ opacity: 0, y: 20 }}
-                  className="pt-6"
-                >
-                  <a
-                    href="#contact"
-                    className="inline-flex items-center justify-center w-full px-5 py-3 text-base text-gray-900 font-medium bg-primary rounded-full hover:bg-primary/90 transition-colors"
-                    onClick={toggleMenu}
+                
+                {user ? (
+                  <div className="pt-4 border-t border-gray-200 mt-4">
+                    <div className="text-sm font-medium text-gray-700 mb-3">
+                      {user.displayName || 'User'}
+                    </div>
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        signOut();
+                        setIsOpen(false);
+                      }}
+                      className="w-full flex items-center justify-center space-x-2"
+                    >
+                      <LogOut className="h-4 w-4" />
+                      <span>Sign Out</span>
+                    </Button>
+                  </div>
+                ) : (
+                  <Button
+                    onClick={() => {
+                      handleSignIn();
+                      setIsOpen(false);
+                    }}
+                    className="mt-2 w-full flex items-center justify-center space-x-2"
                   >
-                    Get Started
-                  </a>
-                </motion.div>
+                    <User className="h-4 w-4" />
+                    <span>Sign In</span>
+                  </Button>
+                )}
               </div>
             </motion.div>
           )}
