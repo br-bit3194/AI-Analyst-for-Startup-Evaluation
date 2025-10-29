@@ -60,7 +60,7 @@ const Navbar1 = () => {
           >
             <a
               href="#contact"
-              className="inline-flex items-center justify-center px-5 py-2 text-sm text-white bg-primary rounded-full hover:bg-primary/90 transition-colors"
+              className="inline-flex items-center justify-center px-5 py-2 text-sm text-gray-900 font-medium bg-primary rounded-full hover:bg-primary/90 transition-colors"
             >
               Get Started
             </a>
@@ -126,7 +126,7 @@ const Navbar1 = () => {
                 >
                   <a
                     href="#contact"
-                    className="inline-flex items-center justify-center w-full px-5 py-3 text-base text-white bg-primary rounded-full hover:bg-primary/90 transition-colors"
+                    className="inline-flex items-center justify-center w-full px-5 py-3 text-base text-gray-900 font-medium bg-primary rounded-full hover:bg-primary/90 transition-colors"
                     onClick={toggleMenu}
                   >
                     Get Started
