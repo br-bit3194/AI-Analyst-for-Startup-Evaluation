@@ -1,24 +1,16 @@
 "use client";
 
-import { Sidebar, SidebarBody, SidebarLink, SidebarSection } from "@/components/ui/sidebar";
-import { LayoutDashboard, UserCog, Settings, LogOut, BarChart3, FileText, Users, MessageSquare } from "lucide-react";
 import { useState, useEffect } from "react";
-import { motion, AnimatePresence } from "framer-motion";
 import { BackgroundPaths } from "@/components/ui/background-paths";
 
 export default function DashboardPage() {
-  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
     setMounted(true);
-    // Only set sidebar to open by default on desktop
-    if (window.innerWidth >= 768) {
-      setSidebarOpen(true);
-    }
   }, []);
   
-  // Don't render the sidebar on the server to avoid hydration mismatch
+  // Don't render on the server to avoid hydration mismatch
   if (!mounted) {
     return (
       <div className="min-h-screen flex bg-gray-50">
@@ -34,98 +26,6 @@ export default function DashboardPage() {
   return (
     <div className="h-screen flex overflow-hidden">
       <BackgroundPaths className="absolute inset-0 -z-10" />
-      <Sidebar open={sidebarOpen} setOpen={setSidebarOpen}>
-        <SidebarBody className="h-full py-6">
-          <div className="px-4 mb-8">
-            <div className="flex items-center">
-              <div className="flex items-center">
-                <div className="h-8 w-8 rounded-md overflow-hidden flex-shrink-0">
-                  <img 
-                    src="/startalytica_icon.jpeg" 
-                    alt="Startalytica Logo" 
-                    className="h-full w-full object-cover"
-                  />
-                </div>
-                <motion.span 
-                  className="ml-2 font-semibold text-gray-900 whitespace-nowrap"
-                  animate={{
-                    opacity: sidebarOpen ? 1 : 0,
-                    width: sidebarOpen ? 'auto' : 0,
-                    marginLeft: sidebarOpen ? '0.5rem' : 0,
-                  }}
-                >
-                  Startalytica
-                </motion.span>
-              </div>
-            </div>
-          </div>
-
-          <div className="flex-1 overflow-y-auto">
-            <SidebarSection>
-              <SidebarLink
-                link={{
-                  label: "Dashboard",
-                  href: "/dashboard",
-                  icon: <LayoutDashboard className="h-5 w-5" />,
-                }}
-              />
-              <SidebarLink
-                link={{
-                  label: "Analytics",
-                  href: "/analytics",
-                  icon: <BarChart3 className="h-5 w-5" />,
-                }}
-              />
-              <SidebarLink
-                link={{
-                  label: "Documents",
-                  href: "/documents",
-                  icon: <FileText className="h-5 w-5" />,
-                }}
-              />
-              <SidebarLink
-                link={{
-                  label: "Team",
-                  href: "/team",
-                  icon: <Users className="h-5 w-5" />,
-                }}
-              />
-              <SidebarLink
-                link={{
-                  label: "Messages",
-                  href: "/messages",
-                  icon: <MessageSquare className="h-5 w-5" />,
-                }}
-              />
-            </SidebarSection>
-
-            <SidebarSection className="mt-auto mb-4">
-              <SidebarLink 
-                link={{
-                  label: "Settings",
-                  href: "/dashboard/settings",
-                  icon: <Settings className="h-5 w-5" />
-                }}
-              />
-              <SidebarLink 
-                link={{
-                  label: "Account",
-                  href: "/dashboard/account",
-                  icon: <UserCog className="h-5 w-5" />
-                }}
-              />
-              <SidebarLink 
-                link={{
-                  label: "Logout",
-                  href: "/logout",
-                  icon: <LogOut className="h-5 w-5" />
-                }}
-              />
-            </SidebarSection>
-          </div>
-        </SidebarBody>
-      </Sidebar>
-
       <main className="flex-1 overflow-y-auto p-6 relative z-10 h-full">
         <div className="bg-white/80 backdrop-blur-sm rounded-xl p-6 mb-8">
           <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
