@@ -182,32 +182,48 @@ export const AnalysisResult: React.FC<AnalysisResultProps> = ({ result }) => {
     if (!riskFactors || riskFactors.length === 0) {
       return <p className="text-gray-500 italic">No risk factors identified</p>;
     }
+    
     return (
-      <div className="space-y-4">
-        {riskFactors.map((risk, index) => (
-          <div key={index} className="border-l-4 border-red-500 pl-4 py-2 bg-red-50">
-            <div className="flex justify-between items-start">
-              <h4 className="font-medium text-red-800">{risk.category}</h4>
-              <div className="flex gap-2">
-                <Badge variant="outline" className="bg-red-100 text-red-800">
-                  Impact: {risk.impact}
-                </Badge>
-                <Badge variant="outline" className="bg-yellow-100 text-yellow-800">
-                  Likelihood: {risk.likelihood}
-                </Badge>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {riskFactors.map((factor, index) => (
+          <div 
+            key={index} 
+            className="border rounded-lg p-5 flex flex-col h-full hover:shadow-md transition-shadow duration-200"
+          >
+            <div className="flex-grow">
+              <div className="flex justify-between items-start mb-3">
+                <h4 className="font-medium text-lg text-gray-900">{factor.category}</h4>
+                <div className="flex flex-col items-end space-y-1">
+                  <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${
+                    factor.impact === 'High' ? 'bg-red-100 text-red-800' :
+                    factor.impact === 'Medium' ? 'bg-yellow-100 text-yellow-800' :
+                    'bg-green-100 text-green-800'
+                  }`}>
+                    {factor.impact} Impact
+                  </span>
+                  <span className="px-2.5 py-1 bg-blue-50 text-blue-800 rounded-full text-xs font-medium">
+                    {factor.likelihood} Likelihood
+                  </span>
+                </div>
               </div>
+              
+              <p className="text-sm text-gray-700 mb-4">{factor.description}</p>
+              
+              {factor.confidence && (
+                <div className="mb-4">
+                  <div className="flex justify-between text-xs text-gray-600 mb-1">
+                    <span>Confidence</span>
+                    <span>{factor.confidence}%</span>
+                  </div>
+                  <AnalysisProgress value={factor.confidence} className="h-1.5" />
+                </div>
+              )}
             </div>
-            <p className="mt-1 text-sm text-gray-700">{risk.description}</p>
-            <div className="mt-2">
-              <div className="flex items-center justify-between text-xs text-gray-500 mb-1">
-                <span>Confidence: {Math.round(risk.confidence * 100)}%</span>
-              </div>
-              <Progress value={risk.confidence * 100} className="h-2" />
-            </div>
-            {risk.mitigation && (
-              <div className="mt-2 p-2 bg-blue-50 border border-blue-100 rounded text-sm">
-                <p className="font-medium text-blue-800">Mitigation Strategy:</p>
-                <p className="text-blue-700">{risk.mitigation}</p>
+            
+            {factor.mitigation && (
+              <div className="mt-auto pt-3 border-t border-gray-100">
+                <p className="text-sm font-medium text-gray-800 mb-1">Mitigation Strategy</p>
+                <p className="text-sm text-gray-600">{factor.mitigation}</p>
               </div>
             )}
           </div>
