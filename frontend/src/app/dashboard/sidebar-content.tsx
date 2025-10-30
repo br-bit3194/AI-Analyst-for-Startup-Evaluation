@@ -4,10 +4,12 @@ import * as React from 'react';
 import { SidebarBody, SidebarLink, SidebarSection, useSidebar } from "@/components/ui/sidebar";
 import { LayoutDashboard, UserCog, Settings, LogOut, BarChart3, FileText, Users, MessageSquare, SearchCheck } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useAuth } from "@/contexts/AuthContext";
 
 export function SidebarContent() {
   const { open } = useSidebar();
   const [isMounted, setIsMounted] = React.useState(false);
+  const { signOut } = useAuth();
 
   React.useEffect(() => {
     setIsMounted(true);
@@ -98,8 +100,12 @@ export function SidebarContent() {
           <SidebarLink 
             link={{
               label: "Logout",
-              href: "/api/auth/signout",
+              href: "/dashboard",
               icon: <LogOut className="h-5 w-5" />
+            }}
+            onClick={async (e: React.MouseEvent<HTMLAnchorElement>) => {
+              e.preventDefault();
+              await signOut();
             }}
           />
         </SidebarSection>

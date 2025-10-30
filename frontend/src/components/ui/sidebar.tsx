@@ -6,6 +6,7 @@ import React, { useState, createContext, useContext, useEffect } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Menu, X, LayoutDashboard, UserCog, Settings, LogOut } from "lucide-react";
 import Image from "next/image";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface Links {
   label: string;
@@ -126,6 +127,7 @@ const MobileSidebar = ({
   ...props
 }: React.ComponentProps<"div">) => {
   const { open, setOpen } = useSidebar();
+  const { signOut } = useAuth();
   return (
     <div
       className={cn(
@@ -170,7 +172,6 @@ const MobileSidebar = ({
                 { label: "Dashboard", icon: <LayoutDashboard className="h-5 w-5" />, href: "/dashboard" },
                 { label: "Profile", icon: <UserCog className="h-5 w-5" />, href: "/profile" },
                 { label: "Settings", icon: <Settings className="h-5 w-5" />, href: "/settings" },
-                { label: "Logout", icon: <LogOut className="h-5 w-5" />, href: "/logout" },
               ].map((item) => (
                 <Link
                   key={item.label}
@@ -182,6 +183,18 @@ const MobileSidebar = ({
                   <span>{item.label}</span>
                 </Link>
               ))}
+              <Link
+                href="/dashboard"
+                className="flex items-center px-4 py-3 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+                onClick={async (e) => {
+                  e.preventDefault();
+                  await signOut();
+                  setOpen(false);
+                }}
+              >
+                <span className="mr-3"><LogOut className="h-5 w-5" /></span>
+                <span>Logout</span>
+              </Link>
             </div>
           </motion.div>
         )}
@@ -193,11 +206,13 @@ const MobileSidebar = ({
 export const SidebarLink = ({
   link,
   className,
+  onClick,
   ...props
 }: {
   link: Links;
   className?: string;
   props?: LinkProps;
+  onClick?: React.MouseEventHandler<HTMLAnchorElement>;
 }) => {
   const { open, animate } = useSidebar();
   return (
@@ -207,6 +222,7 @@ export const SidebarLink = ({
         "flex items-center px-4 py-3 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors",
         className
       )}
+      onClick={onClick}
       {...props}
     >
       <span className="mr-3">{link.icon}</span>
