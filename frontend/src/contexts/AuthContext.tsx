@@ -50,8 +50,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       await new Promise(resolve => setTimeout(resolve, 300));
       
       // Perform the sign in
-      await signInWithPopup(auth, googleProvider);
-      router.push('/dashboard');
+      const result = await signInWithPopup(auth, googleProvider);
+      
+      // Ensure the user is set in the state before redirecting
+      setUser(result.user);
+      
+      // Redirect to dashboard after successful sign-in
+      window.location.href = '/dashboard';
+      
     } catch (error: any) {
       // Ignore "cancelled-popup-request" errors as they're usually not critical
       if (error.code !== 'auth/cancelled-popup-request') {
@@ -63,6 +69,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       (window as any).googleSignInInProgress = false;
     }
   };
+  
+  // Function to handle redirection after sign-in
+  const redirectAfterSignIn = (user: User | null) => {
+    if (user) {
+      // Use window.location.href for a full page reload to ensure auth state is properly set
+      window.location.href = '/dashboard';
+    }
+  };
+  
+  // Update the auth state change handler to handle redirects
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      setUser(user);
+      setLoading(false);
+      
+      // If user just signed in and we're on the home page, redirect to dashboard
+      if (user && window.location.pathname === '/') {
+        redirectAfterSignIn(user);
+      }
+    });
+
+    return () => unsubscribe();
+  }, []);
 
   const signOut = async () => {
     try {
