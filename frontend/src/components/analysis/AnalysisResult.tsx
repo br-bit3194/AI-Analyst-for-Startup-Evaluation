@@ -401,15 +401,322 @@ export const AnalysisResult: React.FC<AnalysisResultProps> = ({ result }) => {
     );
   };
 
+  const formatCurrency = (value: number | string, currency: string = 'USD'): string => {
+    if (typeof value === 'string') {
+      // If it's already formatted, return as is
+      if (value.includes('$') || value.includes(currency)) return value;
+      // Try to parse string to number
+      const numValue = parseFloat(value.replace(/[^0-9.-]+/g, ''));
+      if (!isNaN(numValue)) {
+        return new Intl.NumberFormat('en-US', {
+          style: 'currency',
+          currency: currency,
+          minimumFractionDigits: 0,
+          maximumFractionDigits: 0
+        }).format(numValue);
+      }
+      return value;
+    }
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: currency,
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0
+    }).format(value);
+  };
+
+  const formatPercentage = (value: number | string): string => {
+    const numValue = typeof value === 'string' ? parseFloat(value) : value;
+    if (isNaN(numValue)) return String(value);
+    return new Intl.NumberFormat('en-US', {
+      style: 'percent',
+      minimumFractionDigits: 1,
+      maximumFractionDigits: 1
+    }).format(numValue / 100);
+  };
+
   const renderFinancialAnalysis = (financialData?: any) => {
-    if (!financialData) return <p className="text-gray-500 italic">No financial data available</p>;
     if (!financialData) {
       return <p className="text-gray-500 italic">No financial data available</p>;
     }
+
+    const { unit_economics, financial_health, funding_rounds } = financialData;
+
     return (
-      <div>
-        <h4 className="font-medium text-gray-900">Financial Analysis</h4>
-        <p className="text-gray-700">{financialData}</p>
+      <div className="space-y-6">
+        {/* Unit Economics */}
+        {unit_economics && (
+          <div className="border rounded-lg p-4 bg-white shadow-sm">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+              <BarChart className="h-5 w-5 mr-2 text-indigo-600" />
+              Unit Economics
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {unit_economics.customer_acquisition_cost && (
+                <div className="bg-blue-50 p-4 rounded-lg">
+                  <p className="text-sm text-gray-600">Customer Acquisition Cost</p>
+                  <p className="text-xl font-bold text-gray-900">
+                    {formatCurrency(unit_economics.customer_acquisition_cost.value, unit_economics.customer_acquisition_cost.currency)}
+                  </p>
+                  {unit_economics.customer_acquisition_cost.benchmark && (
+                    <p className="text-xs text-gray-500 mt-1">
+                      Benchmark: {formatCurrency(unit_economics.customer_acquisition_cost.benchmark, unit_economics.customer_acquisition_cost.currency)}
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {unit_economics.lifetime_value && (
+                <div className="bg-green-50 p-4 rounded-lg">
+                  <p className="text-sm text-gray-600">Lifetime Value</p>
+                  <p className="text-xl font-bold text-gray-900">
+                    {formatCurrency(unit_economics.lifetime_value.value, unit_economics.lifetime_value.currency)}
+                  </p>
+                  {unit_economics.lifetime_value.benchmark && (
+                    <p className="text-xs text-gray-500 mt-1">
+                      Benchmark: {formatCurrency(unit_economics.lifetime_value.benchmark, unit_economics.lifetime_value.currency)}
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {unit_economics.ltv_cac_ratio && (
+                <div className="bg-purple-50 p-4 rounded-lg">
+                  <p className="text-sm text-gray-600">LTV:CAC Ratio</p>
+                  <p className="text-xl font-bold text-gray-900">
+                    {typeof unit_economics.ltv_cac_ratio === 'object' 
+                      ? unit_economics.ltv_cac_ratio.value 
+                      : unit_economics.ltv_cac_ratio}
+                    {typeof unit_economics.ltv_cac_ratio === 'object' && unit_economics.ltv_cac_ratio.unit 
+                      ? ` ${unit_economics.ltv_cac_ratio.unit}` 
+                      : ''}
+                  </p>
+                  <p className="text-xs text-gray-500 mt-1">
+                    {typeof unit_economics.ltv_cac_ratio === 'object' && unit_economics.ltv_cac_ratio.benchmark 
+                      ? `Benchmark: ${unit_economics.ltv_cac_ratio.benchmark}` 
+                      : 'Ideal: > 3.0'}
+                  </p>
+                </div>
+              )}
+
+              {unit_economics.payback_period && (
+                <div className="bg-yellow-50 p-4 rounded-lg">
+                  <p className="text-sm text-gray-600">Payback Period</p>
+                  <p className="text-xl font-bold text-gray-900">
+                    {typeof unit_economics.payback_period === 'object' 
+                      ? `${unit_economics.payback_period.months} months` 
+                      : `${unit_economics.payback_period} months`}
+                  </p>
+                  <p className="text-xs text-gray-500 mt-1">
+                    {typeof unit_economics.payback_period === 'object' && unit_economics.payback_period.benchmark 
+                      ? `Benchmark: ${unit_economics.payback_period.benchmark} months` 
+                      : 'Ideal: < 12 months'}
+                  </p>
+                </div>
+              )}
+
+              {unit_economics.gross_margin && (
+                <div className="bg-pink-50 p-4 rounded-lg">
+                  <p className="text-sm text-gray-600">Gross Margin</p>
+                  <p className="text-xl font-bold text-gray-900">
+                    {formatPercentage(unit_economics.gross_margin)}
+                  </p>
+                  <p className="text-xs text-gray-500 mt-1">
+                    {typeof unit_economics.gross_margin === 'object' && unit_economics.gross_margin.benchmark 
+                      ? `Benchmark: ${formatPercentage(unit_economics.gross_margin.benchmark)}` 
+                      : 'Ideal: > 70% for SaaS'}
+                  </p>
+                </div>
+              )}
+
+              {unit_economics.contribution_margin && (
+                <div className="bg-teal-50 p-4 rounded-lg">
+                  <p className="text-sm text-gray-600">Contribution Margin</p>
+                  <p className="text-xl font-bold text-gray-900">
+                    {formatPercentage(unit_economics.contribution_margin)}
+                  </p>
+                  <p className="text-xs text-gray-500 mt-1">
+                    {typeof unit_economics.contribution_margin === 'object' && unit_economics.contribution_margin.benchmark 
+                      ? `Benchmark: ${formatPercentage(unit_economics.contribution_margin.benchmark)}` 
+                      : 'Ideal: > 50%'}
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Financial Health */}
+        {financial_health && (
+          <div className="border rounded-lg p-4 bg-white shadow-sm">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+              <TrendingUp className="h-5 w-5 mr-2 text-teal-600" />
+              Financial Health
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {financial_health.burn_rate && (
+                <div className="bg-red-50 p-4 rounded-lg">
+                  <p className="text-sm text-gray-600">Monthly Burn Rate</p>
+                  <p className="text-xl font-bold text-gray-900">
+                    {formatCurrency(
+                      typeof financial_health.burn_rate === 'object' 
+                        ? financial_health.burn_rate.monthly 
+                        : financial_health.burn_rate
+                    )}
+                  </p>
+                  {typeof financial_health.burn_rate === 'object' && financial_health.burn_rate.annual && (
+                    <p className="text-xs text-gray-500 mt-1">
+                      Annual: {formatCurrency(financial_health.burn_rate.annual)}
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {financial_health.runway_months && (
+                <div className="bg-orange-50 p-4 rounded-lg">
+                  <p className="text-sm text-gray-600">Runway</p>
+                  <p className="text-xl font-bold text-gray-900">
+                    {typeof financial_health.runway_months === 'object' 
+                      ? financial_health.runway_months.value 
+                      : financial_health.runway_months} months
+                  </p>
+                  <p className="text-xs text-gray-500 mt-1">
+                    {typeof financial_health.runway_months === 'object' && financial_health.runway_months.benchmark 
+                      ? `Benchmark: ${financial_health.runway_months.benchmark} months` 
+                      : 'Ideal: > 18 months'}
+                  </p>
+                </div>
+              )}
+
+              {financial_health.revenue_growth_rate && (
+                <div className="bg-blue-50 p-4 rounded-lg">
+                  <p className="text-sm text-gray-600">Revenue Growth (YoY)</p>
+                  <p className="text-xl font-bold text-gray-900">
+                    {formatPercentage(financial_health.revenue_growth_rate)}
+                  </p>
+                  {typeof financial_health.revenue_growth_rate === 'object' && financial_health.revenue_growth_rate.benchmark && (
+                    <p className="text-xs text-gray-500 mt-1">
+                      Benchmark: {formatPercentage(financial_health.revenue_growth_rate.benchmark)}
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {financial_health.cash_balance && (
+                <div className="bg-green-50 p-4 rounded-lg">
+                  <p className="text-sm text-gray-600">Cash Balance</p>
+                  <p className="text-xl font-bold text-gray-900">
+                    {formatCurrency(
+                      typeof financial_health.cash_balance === 'object' 
+                        ? financial_health.cash_balance.value 
+                        : financial_health.cash_balance
+                    )}
+                  </p>
+                  {financial_health.runway_months && financial_health.burn_rate && (
+                    <p className="text-xs text-gray-500 mt-1">
+                      Runway: {typeof financial_health.runway_months === 'object' 
+                        ? financial_health.runway_months.value 
+                        : financial_health.runway_months} months
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {financial_health.gross_margin && (
+                <div className="bg-purple-50 p-4 rounded-lg">
+                  <p className="text-sm text-gray-600">Gross Margin</p>
+                  <p className="text-xl font-bold text-gray-900">
+                    {formatPercentage(financial_health.gross_margin)}
+                  </p>
+                  {typeof financial_health.gross_margin === 'object' && financial_health.gross_margin.benchmark && (
+                    <p className="text-xs text-gray-500 mt-1">
+                      Benchmark: {formatPercentage(financial_health.gross_margin.benchmark)}
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {financial_health.ebitda_margin && (
+                <div className="bg-indigo-50 p-4 rounded-lg">
+                  <p className="text-sm text-gray-600">EBITDA Margin</p>
+                  <p className="text-xl font-bold text-gray-900">
+                    {formatPercentage(financial_health.ebitda_margin)}
+                  </p>
+                  {typeof financial_health.ebitda_margin === 'object' && financial_health.ebitda_margin.benchmark && (
+                    <p className="text-xs text-gray-500 mt-1">
+                      Benchmark: {formatPercentage(financial_health.ebitda_margin.benchmark)}
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Funding Rounds */}
+        {funding_rounds && funding_rounds.length > 0 && (
+          <div className="border rounded-lg p-4 bg-white shadow-sm">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+              <svg className="h-5 w-5 mr-2 text-gray-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              Funding History
+            </h3>
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Date
+                    </th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Round
+                    </th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Amount
+                    </th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Valuation
+                    </th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Lead Investors
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {funding_rounds
+                    .sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime())
+                    .map((round: any, index: number) => (
+                      <tr key={index} className={index === 0 ? 'bg-blue-50' : ''}>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          {new Date(round.date).toLocaleDateString()}
+                          {index === 0 && (
+                            <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
+                              Latest
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                          {round.type}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          {formatCurrency(round.amount, round.currency || 'USD')}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          {round.valuation ? formatCurrency(round.valuation, round.currency || 'USD') : 'N/A'}
+                        </td>
+                        <td className="px-6 py-4 text-sm text-gray-900">
+                          {round.investors && round.investors.length > 0 
+                            ? round.investors.slice(0, 2).join(', ') + (round.investors.length > 2 ? ` +${round.investors.length - 2} more` : '')
+                            : 'Undisclosed'}
+                        </td>
+                      </tr>
+                    ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
       </div>
     );
   };
