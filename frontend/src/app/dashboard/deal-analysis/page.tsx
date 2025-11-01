@@ -283,7 +283,7 @@ Ecobox by Binbag is uniquely positioned at the intersection of rising regulatory
               Analyzing your pitch...
             </p>
             <p className="text-center text-sm text-gray-600">
-              This may take a few moments
+              This may take a 2-3 mins...
             </p>
           </div>
         </div>
