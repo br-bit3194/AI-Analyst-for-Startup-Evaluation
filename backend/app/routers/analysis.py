@@ -1,8 +1,11 @@
-from fastapi import APIRouter, HTTPException, BackgroundTasks, Request, Depends, status, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, HTTPException, BackgroundTasks, Request, Depends, status, WebSocket, WebSocketDisconnect, File, UploadFile, Form
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from typing import Optional, Dict, Any, List
 import json
 import asyncio
+import PyPDF2
+from io import BytesIO
 import uuid
 import httpx
 from datetime import datetime
@@ -30,7 +33,8 @@ analysis_callbacks = {}
 # Models
 class AnalysisRequest(BaseModel):
     pitch: str
-    callback_url: Optional[str] = None  # For webhook notifications
+    callback_url: Optional[str] = None
+    file: Optional[Any] = None  # Will hold the UploadFile object  # For webhook notifications
 
 class AnalysisResponse(BaseModel):
     analysisId: str  # Changed to match frontend expectation
@@ -51,28 +55,157 @@ async def websocket_endpoint(websocket: WebSocket, analysis_id: str):
     except WebSocketDisconnect:
         websocket_manager.disconnect(analysis_id, websocket)
 
+async def extract_text_from_pdf(file: UploadFile) -> str:
+    """Extract text from uploaded PDF file."""
+    try:
+        contents = await file.read()
+        pdf_reader = PyPDF2.PdfReader(BytesIO(contents))
+        text = ""
+        for page in pdf_reader.pages:
+            text += page.extract_text() + "\n"
+        return text.strip()
+    except Exception as e:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Error processing PDF file: {str(e)}"
+        )
+
+async def process_analysis_request(
+    pitch: str,
+    background_tasks: BackgroundTasks,
+    callback_url: Optional[str] = None,
+    file: Optional[UploadFile] = None
+):
+    """Process analysis request with the given pitch text or file."""
+    # Create an AnalysisRequest with the extracted text
+    request = AnalysisRequest(
+        pitch=pitch,
+        callback_url=callback_url
+    )
+    
+    # If file is provided, pass it along with the request
+    if file:
+        request.file = file
+    
+    return await evaluate_pitch(request, background_tasks)
+
 @router.post("", 
             response_model=AnalysisResponse,
             status_code=status.HTTP_202_ACCEPTED,
             summary="Start a new analysis",
             response_description="Analysis started successfully")
 async def start_analysis(
-    request: AnalysisRequest,
-    background_tasks: BackgroundTasks
+    request: Request,
+    background_tasks: BackgroundTasks = BackgroundTasks()
 ):
     """
-    Start a new analysis of a startup pitch (alias for /evaluate endpoint).
-    Returns immediately with an analysis ID that can be used to check the status.
+    Start a new analysis of a startup pitch.
+    
+    This endpoint accepts both:
+    - JSON payload with 'pitch' and optional 'callback_url'
+    - Multipart form with 'file' (PDF) and optional 'callback_url'
     """
-    return await evaluate_pitch(request, background_tasks)
+    content_type = request.headers.get('content-type', '')
+    
+    # Handle JSON payload
+    if 'application/json' in content_type:
+        try:
+            data = await request.json()
+            return await process_analysis_request(
+                pitch=data.get('pitch', ''),
+                background_tasks=background_tasks,
+                callback_url=data.get('callback_url'),
+                file=data.get('file')
+            )
+        except json.JSONDecodeError:
+            raise HTTPException(status_code=400, detail="Invalid JSON payload")
+    
+    # Handle file upload (multipart/form-data)
+    elif 'multipart/form-data' in content_type:
+        form_data = await request.form()
+        file = form_data.get('file')
+        
+        if not file or not hasattr(file, 'filename'):
+            raise HTTPException(status_code=400, detail="No file provided")
+            
+        if not file.filename.lower().endswith('.pdf'):
+            raise HTTPException(status_code=400, detail="Only PDF files are supported")
+            
+        # Extract text from PDF
+        try:
+            pitch_text = await extract_text_from_pdf(file)
+            if not pitch_text.strip():
+                raise HTTPException(
+                    status_code=400,
+                    detail="The uploaded PDF appears to be empty or could not be read"
+                )
+                
+            return await process_analysis_request(
+                pitch=pitch_text,
+                background_tasks=background_tasks,
+                callback_url=form_data.get('callback_url'),
+                file=file  # Pass the file object directly
+            )
+                
+        except HTTPException:
+            raise
+        except Exception as e:
+            raise HTTPException(
+                status_code=500,
+                detail=f"An error occurred while processing the file: {str(e)}"
+            )
+    
+    # Unsupported content type
+    raise HTTPException(
+        status_code=415,
+        detail="Unsupported media type. Use 'application/json' or 'multipart/form-data'"
+    )
+    """
+    Start a new analysis of a startup pitch from a PDF file.
+    Returns immediately with an analysis ID that can be used to check the status.
+    
+    The PDF should contain the startup pitch or business plan to be analyzed.
+    """
+    # Check if the uploaded file is a PDF
+    if not file.filename.lower().endswith('.pdf'):
+        raise HTTPException(
+            status_code=400,
+            detail="Only PDF files are supported"
+        )
+    
+    # Extract text from PDF
+    try:
+        pitch_text = await extract_text_from_pdf(file)
+        if not pitch_text.strip():
+            raise HTTPException(
+                status_code=400,
+                detail="The uploaded PDF appears to be empty or could not be read"
+            )
+            
+        # Create an AnalysisRequest with the extracted text
+        request = AnalysisRequest(
+            pitch=pitch_text,
+            callback_url=callback_url
+        )
+        
+        return await evaluate_pitch(request, background_tasks)
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"An error occurred while processing the file: {str(e)}"
+        )
 
-async def run_analysis(analysis_id: str, pitch: str):
+async def run_analysis(analysis_id: str, pitch: str, file: Optional[UploadFile] = None):
     """
     Background task to run the analysis with comprehensive logging.
     
     Args:
         analysis_id: Unique ID for this analysis
         pitch: The startup pitch to analyze
+        file: Optional uploaded file (PDF) to analyze
     """
     logger = AgentLogger("analysis_worker", analysis_id)
     
@@ -93,9 +226,15 @@ async def run_analysis(analysis_id: str, pitch: str):
         start_time = datetime.utcnow()
         await update_progress("Starting analysis...", 10)
         
+        # Prepare input data for analysis
+        input_data = {
+            'pitch': pitch,
+            'file': file  # Pass the file object directly to the committee
+        }
+        
         # Run analysis with progress tracking
         result = await committee.analyze_pitch_with_progress(
-            pitch,
+            input_data,
             progress_callback=lambda msg, pct: update_progress(msg, 10 + int(pct * 0.8))  # 10-90% for analysis
         )
         
@@ -232,7 +371,8 @@ async def evaluate_pitch(
     background_tasks.add_task(
         run_analysis,
         analysis_id=analysis_id,
-        pitch=request.pitch
+        pitch=request.pitch,
+        file=request.file
     )
     
     # Return immediately with the analysis ID

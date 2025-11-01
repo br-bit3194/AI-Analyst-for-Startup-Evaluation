@@ -56,7 +56,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(result.user);
       
       // Redirect to dashboard after successful sign-in
-      window.location.href = '/dashboard';
+      window.location.href = '/dashboard/deal-analysis';
       
     } catch (error: any) {
       // Ignore "cancelled-popup-request" errors as they're usually not critical
@@ -74,7 +74,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const redirectAfterSignIn = (user: User | null) => {
     if (user) {
       // Use window.location.href for a full page reload to ensure auth state is properly set
-      window.location.href = '/dashboard';
+      window.location.href = '/dashboard/deal-analysis';
     }
   };
   

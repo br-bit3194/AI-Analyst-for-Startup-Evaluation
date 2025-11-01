@@ -3,6 +3,7 @@ from concurrent.futures import ThreadPoolExecutor
 import asyncio
 import json
 from datetime import datetime
+from fastapi import UploadFile
 from .agents import (
     BaseAgent, AgentResponse,
     RiskAnalyst, MarketExpert,
@@ -26,14 +27,16 @@ class CommitteeCoordinator:
     
     async def analyze_pitch_with_progress(
         self, 
-        pitch: str, 
+        input_data: Dict[str, Any], 
         progress_callback: Optional[callable] = None
     ) -> Dict[str, Any]:
         """
         Coordinate the analysis of a pitch across all agents with progress updates.
         
         Args:
-            pitch: The startup pitch to analyze
+            input_data: Dictionary containing:
+                - pitch: The startup pitch to analyze (required)
+                - file: Optional UploadFile object for PDF processing
             progress_callback: Optional callback function that receives (message, progress)
             
         Returns:
@@ -45,18 +48,31 @@ class CommitteeCoordinator:
                 
         await update_progress("Initializing analysis...", 0)
         
-        # Wrap the original analyze_pitch to maintain backward compatibility
-        result = await self.analyze_pitch(pitch)
+        # If input_data is a string (for backward compatibility), convert to dict
+        if isinstance(input_data, str):
+            input_data = {'pitch': input_data}
+        
+        # Extract pitch and file from input_data
+        pitch = input_data.get('pitch', '')
+        file = input_data.get('file')
+        
+        # If file is provided, add it to the context
+        if file:
+            input_data['file'] = file
+        
+        # Run the analysis
+        result = await self.analyze_pitch(pitch, file=file)
         
         await update_progress("Analysis complete!", 100)
         return result
         
-    async def analyze_pitch(self, pitch: str) -> Dict[str, Any]:
+    async def analyze_pitch(self, pitch: str, file: Optional[UploadFile] = None) -> Dict[str, Any]:
         """
         Coordinate the analysis of a pitch across all agents.
         
         Args:
             pitch: The startup pitch to analyze
+            file: Optional UploadFile object for PDF processing
             
         Returns:
             Dict containing analysis results from all agents and final verdict
@@ -67,7 +83,8 @@ class CommitteeCoordinator:
         input_data = {
             'pitch': pitch,
             'timestamp': analysis_start.isoformat(),
-            'analysis_id': str(hash(pitch + str(analysis_start.timestamp())))
+            'analysis_id': str(hash(pitch + str(analysis_start.timestamp()))),
+            'file': file  # Include the file in the input data
         }
         
         # Set context for all agents

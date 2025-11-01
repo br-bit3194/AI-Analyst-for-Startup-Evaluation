@@ -1,7 +1,10 @@
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, Union
 import aiohttp
 import json
 from urllib.parse import quote_plus
+from fastapi import UploadFile
+import PyPDF2
+from io import BytesIO
 from ..llm_client import call_llm
 from .base_agent import BaseAgent, AgentResponse
 
@@ -43,75 +46,192 @@ class FinanceExpert(BaseAgent):
         
         return None
 
-    async def analyze(self, input_data: Dict[str, Any]) -> AgentResponse:
-        """Analyze the financial aspects of the pitch."""
+    async def extract_text_from_pdf(self, file: UploadFile) -> str:
+        """Extract text from an uploaded PDF file."""
         try:
+            contents = await file.read()
+            pdf_reader = PyPDF2.PdfReader(BytesIO(contents))
+            text = ""
+            for page in pdf_reader.pages:
+                text += page.extract_text() + "\n"
+            return text.strip()
+        except Exception as e:
+            raise ValueError(f"Error extracting text from PDF: {str(e)}")
+
+    async def analyze(self, input_data: Dict[str, Any]) -> AgentResponse:
+        """Analyze the financial aspects of the pitch or PDF.
+        
+        Args:
+            input_data: Can contain:
+                - 'pitch': Text content to analyze
+                - 'file': UploadFile object for PDF processing
+                - 'company_name': Optional company name for additional context
+        """
+        try:
+            # Handle both direct text and file uploads
             pitch = input_data.get('pitch', '')
+            file = input_data.get('file')
+            
+            # If file is provided, extract text from it
+            if file and hasattr(file, 'filename') and file.filename.lower().endswith('.pdf'):
+                try:
+                    pitch = await self.extract_text_from_pdf(file)
+                    if not pitch.strip():
+                        return self._format_response(
+                            {"error": "The uploaded PDF appears to be empty or could not be read"},
+                            success=False
+                        )
+                except Exception as e:
+                    return self._format_response(
+                        {"error": f"Error processing PDF: {str(e)}"},
+                        success=False
+                    )
             
             # Extract company name for web search (simple implementation)
-            company_name = None
-            # Look for company name in pitch (simple regex, can be improved)
-            import re
-            name_matches = re.findall(r'(?:[A-Z][a-z]+\s+){1,3}(?:Inc\.?|Ltd\.?|LLC|Corp\.?|Pty\s+Ltd\.?|GmbH)\b', pitch)
-            if name_matches:
-                company_name = name_matches[0]
+            company_name = input_data.get('company_name')
+            if not company_name:
+                import re
+                name_matches = re.findall(r'(?:[A-Z][a-z]+\s+){1,3}(?:Inc\.?|Ltd\.?|LLC|Corp\.?|Pty\s+Ltd\.?|GmbH)\b', pitch)
+                if name_matches:
+                    company_name = name_matches[0]
             
             # Scrape valuation data in parallel with LLM analysis
             valuation_data = {}
             if company_name:
                 valuation_data = await self._scrape_valuation_data(company_name)
             
-            system_prompt = """You are a Financial Expert evaluating a startup's financial health and projections. Analyze:
-            1. Revenue model and pricing strategy
-            2. Cost structure and unit economics
-            3. Burn rate and runway
-            4. Financial projections and assumptions
-            5. Key metrics (CAC, LTV, MRR, etc.)
-            6. Company valuation based on available data
+            system_prompt = """You are a Data-Driven Financial Expert evaluating a startup's financial health and projections. Your analysis must be NUMBERS-FIRST, with clear metrics and quantitative insights.
             
-            For each aspect, provide:
-            - Analysis of current state
-            - Reasonableness of projections
-            - Risk factors
-            - Comparison to industry benchmarks
+            For ALL analyses, follow these RULES:
+            1. LEAD WITH NUMERICAL VALUES in your analysis
+            2. Use clear, standardized units (USD, months, %)
+            3. Include industry benchmarks for context
+            4. Calculate implied metrics when possible
+            5. Use data tables for multi-point comparisons
+            
+            If financial data is explicitly mentioned, analyze and QUANTIFY:
+            1. Revenue Model:
+               - Pricing structure (e.g., $X/month per user)
+               - Customer segments and their contribution
+               - Growth rate (MoM, QoQ, YoY)
+               
+            2. Unit Economics (show calculations):
+               - CAC: $X per customer
+               - LTV: $X per customer
+               - LTV:CAC ratio: X:1 (benchmark: 3:1)
+               - Payback period: X months
+               
+            3. Financial Health:
+               - Burn rate: $X/month
+               - Runway: X months
+               - Gross margin: X%
+               - Cash balance: $X
+               
+            4. Key Metrics:
+               - MRR/ARR: $X (X% growth)
+               - Churn: X% monthly
+               - Gross Merchandise Value (if applicable): $X
+               
+            5. Valuation (show method):
+               - Pre-money: $X
+               - Post-money: $X
+               - Multiple: Xx revenue/ARR
+               - Method: [DCF/Revenue Multiple/Comparables]
+            
+            If data is missing, INFER using:
+            - Industry benchmarks (cite sources)
+            - Business model comps
+            - Stage-appropriate metrics
+            - Team size and hiring plans
+            - Funding history
             
             Format response as JSON with the following structure:
             {
+                "financial_summary": {
+                    "key_metrics": [
+                        {"name": "Valuation", "value": "$X", "benchmark": "$Y", "delta": "+X%"},
+                        {"name": "MRR", "value": "$X", "growth": "X% MoM"},
+                        {"name": "Burn Rate", "value": "$X/mo", "runway": "X months"},
+                        {"name": "LTV:CAC", "value": "X:1", "benchmark": "3:1"}
+                    ]
+                },
                 "revenue_analysis": {
-                    "model": string,
-                    "strengths": string[],
-                    "concerns": string[]
+                    "model": "SaaS/Marketplace/E-commerce",
+                    "pricing_tiers": [
+                        {"plan": "Basic", "price": "$X/mo", "features": []},
+                        {"plan": "Pro", "price": "$Y/mo", "features": []}
+                    ],
+                    "customer_metrics": {
+                        "arpu": "$X",
+                        "growth_rate": "X% MoM",
+                        "churn_rate": "X%"
+                    },
+                    "inferred": boolean
                 },
                 "unit_economics": {
-                    "cac": number | null,
-                    "ltv": number | null,
-                    "payback_period": number | null,
-                    "analysis": string
+                    "cac": {"value": X, "unit": "$", "benchmark": "$Y", "analysis": ""},
+                    "ltv": {"value": X, "unit": "$", "ltv_cac_ratio": X},
+                    "payback_period": {"value": X, "unit": "months", "benchmark": "<12mo"},
+                    "gross_margin": {"value": X, "unit": "%", "benchmark": "X%"}
                 },
                 "financial_health": {
-                    "burn_rate": number | null,
-                    "runway_months": number | null,
-                    "analysis": string
+                    "burn_rate": {"monthly": X, "annual": X},
+                    "runway": X,
+                    "cash_balance": X,
+                    "funding_rounds": [
+                        {"date": "YYYY-MM-DD", "amount": X, "type": "Seed/Series A", "valuation": X}
+                    ]
                 },
                 "projections": {
-                    "assumptions_analysis": string,
-                    "sensitivity_analysis": string,
-                    "red_flags": string[]
+                    "next_12_months": {
+                        "revenue": X,
+                        "customers": X,
+                        "employees": X,
+                        "gross_margin": "X%"
+                    },
+                    "sensitivity_analysis": {
+                        "best_case": {"revenue": X, "valuation": X},
+                        "base_case": {"revenue": X, "valuation": X},
+                        "worst_case": {"revenue": X, "valuation": X}
+                    }
                 },
-                "company_valuation": {
-                    "estimated_valuation": number | null,
-                    "valuation_method": string,
-                    "comparable_companies": string[],
-                    "confidence": number,
-                    "data_sources": string[]
+                "valuation_analysis": {
+                    "pre_money": X,
+                    "post_money": X,
+                    "method": "DCF/Revenue Multiple/Comparables",
+                    "revenue_multiple": X,
+                    "comparable_companies": [
+                        {"name": "Company A", "multiple": X, "revenue": X},
+                        {"name": "Company B", "multiple": X, "revenue": X}
+                    ]
                 },
-                "confidence": number
+                "data_quality": {
+                    "has_explicit_financials": boolean,
+                    "missing_metrics": ["metric1", "metric2"],
+                    "confidence": 0.0-1.0
+                },
+                "executive_summary": "[1-2 paragraph summary with key numbers in **bold**]"
             }"""
             
+            # Prepare the user prompt with clear instructions
+            user_prompt = f"""Please analyze the following business information and provide financial insights. 
+            If specific financial data is not available, make reasonable inferences based on the business model and industry standards.
+            
+            BUSINESS INFORMATION:
+            {pitch}
+            
+            If the above doesn't contain financial data, please make reasonable assumptions based on:
+            - Business model (B2B, B2C, SaaS, Marketplace, etc.)
+            - Industry benchmarks
+            - Company stage (pre-seed, seed, Series A, etc.)
+            - Team size and hiring plans
+            - Any metrics or numbers mentioned
+            
+            Be sure to mark any inferred data with "inferred": true and provide confidence levels."""
+            
             # Add valuation data to the prompt if available
-            user_prompt = pitch
             if valuation_data:
-                user_prompt += f"\n\nAdditional valuation data from web search:\n{json.dumps(valuation_data, indent=2)}"
+                user_prompt += f"\n\nADDITIONAL VALUATION DATA FROM WEB SEARCH:\n{json.dumps(valuation_data, indent=2)}"
             
             response = await call_llm(
                 system_prompt=system_prompt,

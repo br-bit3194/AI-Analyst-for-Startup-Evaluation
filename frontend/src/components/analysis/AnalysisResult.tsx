@@ -23,14 +23,66 @@ type RiskFactor = {
   mitigation: string;
 };
 
-type MarketSize = {
-  value: string;
-  currency: string;
-  year: number;
-  source: string;
-  confidence: number;
-  notes: string;
-};
+interface MarketSize {
+  value?: string | number;
+  currency?: string;
+  year?: number;
+  source?: string;
+  confidence?: number;
+  notes?: string;
+  TAM?: string | number;
+  SAM?: string | number;
+  SOM?: string | number;
+  validation_notes?: string;
+}
+
+interface FinancialValue {
+  value: number | string;
+  unit?: string;
+  benchmark?: string | number;
+  monthly?: number;
+  annual?: number;
+  months?: number;
+  years?: number;
+}
+
+interface FinancialMetrics {
+  [key: string]: FinancialValue | number | null | undefined;
+}
+
+interface UnitEconomics extends FinancialMetrics {
+  customer_acquisition_cost?: FinancialValue;
+  lifetime_value?: FinancialValue;
+  ltv_cac_ratio?: FinancialValue | number;
+  payback_period?: FinancialValue | { months: number };
+  gross_margin?: FinancialValue | number;
+  contribution_margin?: FinancialValue | number;
+}
+
+interface FinancialHealth extends FinancialMetrics {
+  burn_rate?: FinancialValue | { monthly: number; annual: number };
+  runway_months?: FinancialValue | number;
+  revenue_growth_rate?: FinancialValue | number;
+  cash_balance?: FinancialValue | number;
+  gross_margin?: FinancialValue | number;
+  ebitda_margin?: FinancialValue | number;
+}
+
+interface FundingRound {
+  date: string;
+  amount: number;
+  type: string;
+  valuation?: number;
+  investors?: string[];
+  purpose?: string;
+}
+
+interface FinanceExpertData {
+  unit_economics?: UnitEconomics;
+  financial_health?: FinancialHealth;
+  funding_rounds?: FundingRound[];
+  analysis?: string;
+}
 
 type GrowthProjection = {
   year: number;
@@ -58,7 +110,31 @@ interface AnalysisResultProps {
     agents: {
       [key: string]: {
         success: boolean;
-        data: any;
+        data: Record<string, unknown>;
+        error: string | null;
+        confidence: number;
+      };
+    } & {
+      FinanceExpert?: {
+        success: boolean;
+        data: FinanceExpertData;
+        error: string | null;
+        confidence: number;
+      };
+      MarketExpert?: {
+        success: boolean;
+        data: {
+          market_analysis?: {
+            market_size_validation?: {
+              TAM?: string | number;
+              SAM?: string | number;
+              SOM?: string | number;
+              validation_notes?: string;
+            };
+            [key: string]: unknown;
+          };
+          [key: string]: unknown;
+        };
         error: string | null;
         confidence: number;
       };
@@ -94,7 +170,69 @@ export const AnalysisResult: React.FC<AnalysisResultProps> = ({ result }) => {
   }
 
   // Safely extract values with defaults
-  const agents = result.agents || {};
+  const agents = result.agents as {
+    [key: string]: {
+      success: boolean;
+      data: Record<string, unknown>;
+      error: string | null;
+      confidence: number;
+    };
+    FinanceExpert?: {
+      success: boolean;
+      data: FinanceExpertData;
+      error: string | null;
+      confidence: number;
+    };
+    MarketExpert?: {
+      success: boolean;
+      data: {
+        market_analysis?: {
+          market_size_validation?: {
+            TAM?: string | number;
+            SAM?: string | number;
+            SOM?: string | number;
+            validation_notes?: string;
+          };
+          [key: string]: unknown;
+        };
+        [key: string]: unknown;
+      };
+      error: string | null;
+      confidence: number;
+    };
+  };
+
+  // Helper function to safely access financial values
+  const getFinancialValue = (value: unknown): string => {
+    if (value === null || value === undefined) return 'N/A';
+    
+    if (typeof value === 'number') {
+      return new Intl.NumberFormat('en-US', {
+        style: 'currency',
+        currency: 'USD',
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0
+      }).format(value);
+    }
+
+    if (typeof value === 'object' && value !== null) {
+      const val = value as FinancialValue;
+      const numValue = typeof val.value === 'string' ? parseFloat(val.value) : val.value;
+      
+      if (isNaN(numValue)) return 'N/A';
+      
+      const formatted = new Intl.NumberFormat('en-US', {
+        style: 'currency',
+        currency: 'USD',
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0
+      }).format(numValue);
+      
+      return val.unit ? `${formatted} ${val.unit}`.trim() : formatted;
+    }
+    
+    return String(value);
+  };
   const final_verdict = result.final_verdict || {
     recommendation: 'PENDING',
     confidence: 0,
@@ -486,14 +624,37 @@ export const AnalysisResult: React.FC<AnalysisResultProps> = ({ result }) => {
             {agents.MarketExpert.data.market_analysis.market_size_validation && (
               <div>
                 <h4 className="font-medium text-gray-900 mb-3">Market Size Validation</h4>
-                {renderMarketSize({
-                  TAM: agents.MarketExpert.data.market_analysis.market_size_validation.tam,
-                  SAM: agents.MarketExpert.data.market_analysis.market_size_validation.sam,
-                  SOM: agents.MarketExpert.data.market_analysis.market_size_validation.som
-                })}
-                <p className="mt-3 text-sm text-gray-600">
-                  {agents.MarketExpert.data.market_analysis.market_size_validation.validation_notes}
-                </p>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="bg-white p-4 rounded-lg border border-blue-100 shadow">
+                    <h5 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-1">TAM</h5>
+                    <p className="text-xl font-semibold text-blue-700">
+                      {agents.MarketExpert?.data?.market_analysis?.market_size_validation?.TAM !== undefined 
+                        ? String(agents.MarketExpert.data.market_analysis.market_size_validation.TAM) 
+                        : 'N/A'}
+                    </p>
+                  </div>
+                  <div className="bg-white p-4 rounded-lg border border-blue-100 shadow">
+                    <h5 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-1">SAM</h5>
+                    <p className="text-xl font-semibold text-blue-700">
+                      {agents.MarketExpert?.data?.market_analysis?.market_size_validation?.SAM !== undefined 
+                        ? String(agents.MarketExpert.data.market_analysis.market_size_validation.SAM) 
+                        : 'N/A'}
+                    </p>
+                  </div>
+                  <div className="bg-white p-4 rounded-lg border border-blue-100 shadow">
+                    <h5 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-1">SOM</h5>
+                    <p className="text-xl font-semibold text-blue-700">
+                      {agents.MarketExpert?.data?.market_analysis?.market_size_validation?.SOM !== undefined 
+                        ? String(agents.MarketExpert.data.market_analysis.market_size_validation.SOM) 
+                        : 'N/A'}
+                    </p>
+                  </div>
+                </div>
+                {agents.MarketExpert?.data?.market_analysis?.market_size_validation?.validation_notes && (
+                  <p className="mt-3 text-sm text-gray-600">
+                    {agents.MarketExpert.data.market_analysis.market_size_validation.validation_notes}
+                  </p>
+                )}
               </div>
             )}
 
@@ -554,100 +715,468 @@ export const AnalysisResult: React.FC<AnalysisResultProps> = ({ result }) => {
 
       {/* Financial Analysis */}
       {agents.FinanceExpert?.data && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center">
-              <TrendingUp className="h-5 w-5 mr-2 text-green-600" />
+        <Card className="border border-blue-50 bg-white shadow-sm">
+          <CardHeader className="bg-gradient-to-r from-blue-50 to-blue-100">
+            <CardTitle className="flex items-center text-blue-800">
+              <TrendingUp className="h-5 w-5 mr-2 text-blue-600" />
               Financial Analysis
             </CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-6 p-6">
+            {/* Business Model Overview */}
             {agents.FinanceExpert.data[' '] && (
-              <div className="space-y-4">
-                <div>
-                  <h4 className="font-medium text-gray-900">Business Model</h4>
-                  <p className="mt-1 text-gray-700">{agents.FinanceExpert.data[' '].model}</p>
-                </div>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="bg-green-50 p-4 rounded-lg">
-                    <h5 className="font-medium text-green-800">Strengths</h5>
-                    <ul className="mt-2 space-y-1">
-                      {agents.FinanceExpert.data[' '].strengths.map((s: string, i: number) => (
-                        <li key={i} className="flex items-start">
-                          <CheckCircle2 className="h-4 w-4 text-green-500 mt-0.5 mr-2 flex-shrink-0" />
-                          <span className="text-sm text-gray-700">{s}</span>
-                        </li>
-                      ))}
-                    </ul>
+              <div className="space-y-4 p-4 bg-white rounded-lg border border-gray-100 shadow-sm">
+                <div className="flex items-center">
+                  <div className="p-2 bg-blue-100 rounded-full mr-3">
+                    <Info className="h-5 w-5 text-blue-600" />
                   </div>
+                  <h3 className="text-lg font-semibold text-gray-900">Business Model Overview</h3>
+                </div>
+                <div className="ml-10">
+                  <p className="text-gray-700">{agents.FinanceExpert.data[' '].model}</p>
                   
-                  <div className="bg-red-50 p-4 rounded-lg">
-                    <h5 className="font-medium text-red-800">Concerns</h5>
-                    <ul className="mt-2 space-y-1">
-                      {agents.FinanceExpert.data[' '].concerns.map((c: string, i: number) => (
-                        <li key={i} className="flex items-start">
-                          <AlertCircle className="h-4 w-4 text-red-500 mt-0.5 mr-2 flex-shrink-0" />
-                          <span className="text-sm text-gray-700">{c}</span>
-                        </li>
-                      ))}
-                    </ul>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                    <div className="bg-green-50 p-4 rounded-lg border border-green-100">
+                      <h5 className="font-medium text-green-800 flex items-center">
+                        <CheckCircle2 className="h-4 w-4 mr-2 text-green-500" />
+                        Strengths
+                      </h5>
+                      <ul className="mt-2 space-y-2">
+                        {agents.FinanceExpert.data[' '].strengths.map((s: string, i: number) => (
+                          <li key={i} className="flex items-start">
+                            <span className="text-green-500 mr-2">•</span>
+                            <span className="text-sm text-gray-700">{s}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                    
+                    <div className="bg-red-50 p-4 rounded-lg border border-red-100">
+                      <h5 className="font-medium text-red-800 flex items-center">
+                        <AlertCircle className="h-4 w-4 mr-2 text-red-500" />
+                        Concerns
+                      </h5>
+                      <ul className="mt-2 space-y-2">
+                        {agents.FinanceExpert.data[' '].concerns.map((c: string, i: number) => (
+                          <li key={i} className="flex items-start">
+                            <span className="text-red-500 mr-2">•</span>
+                            <span className="text-sm text-gray-700">{c}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
                   </div>
                 </div>
               </div>
             )}
             
+            {/* Unit Economics */}
             {agents.FinanceExpert.data.unit_economics && (
-              <div className="mt-6 border-t pt-4">
-                <h4 className="font-medium text-gray-900 mb-3">Unit Economics</h4>
+              <div className="bg-white p-5 rounded-lg border border-gray-100 shadow-sm">
+                <div className="flex items-center mb-4">
+                  <div className="p-2 bg-indigo-100 rounded-full mr-3">
+                    <BarChart className="h-5 w-5 text-indigo-600" />
+                  </div>
+                  <h3 className="text-lg font-semibold text-gray-900">Unit Economics</h3>
+                </div>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  {Object.entries(agents.FinanceExpert.data.unit_economics).map(([key, value]) => {
-                    if (value === null || key === 'analysis') return null;
+                  {Object.entries(agents.FinanceExpert.data.unit_economics || {}).map(([key, value]) => {
+                    if (value === null || value === undefined || key === 'analysis') return null;
+                    
+                    let displayValue, benchmark, isPositive;
+                    
+                    // Format the value based on its type
+                    if (value && typeof value === 'object' && 'value' in value) {
+                      const val = value as FinancialValue;
+                      const numValue = typeof val.value === 'string' ? parseFloat(val.value) : Number(val.value);
+                      isPositive = !isNaN(numValue) ? numValue >= 0 : true;
+                      
+                      if (!isNaN(numValue)) {
+                        displayValue = getFinancialValue(numValue);
+                        if ('unit' in val && val.unit) {
+                          displayValue = `${displayValue} ${val.unit}`.trim();
+                        }
+                      } else {
+                        displayValue = 'N/A';
+                      }
+                      
+                      if ('benchmark' in val && val.benchmark) {
+                        benchmark = `vs ${val.benchmark} benchmark`;
+                      }
+                    } else if (typeof value === 'number' || typeof value === 'string') {
+                      const numValue = typeof value === 'string' ? parseFloat(value) : value;
+                      isPositive = !isNaN(numValue) ? numValue >= 0 : true;
+                      displayValue = !isNaN(numValue) 
+                        ? new Intl.NumberFormat('en-US', { 
+                            style: 'currency', 
+                            currency: 'USD',
+                            minimumFractionDigits: 0,
+                            maximumFractionDigits: 0
+                          }).format(numValue)
+                        : 'N/A';
+                    } else {
+                      displayValue = value || 'N/A';
+                    }
+                    
                     return (
-                      <div key={key} className="bg-gray-50 p-3 rounded-lg">
-                        <p className="text-sm text-gray-500 capitalize">
-                          {key.split('_').join(' ')}
+                      <div key={key} className={`p-4 rounded-lg border ${
+                        isPositive === true ? 'border-green-100 bg-green-50' : 
+                        isPositive === false ? 'border-red-100 bg-red-50' : 
+                        'border-gray-100 bg-gray-50'
+                      }`}>
+                        <p className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">
+                          {key.replace(/_/g, ' ')}
                         </p>
-                        <p className="font-medium text-gray-900">
-                          {typeof value === 'number' ? value.toLocaleString() : value || 'N/A'}
+                        <p className={`text-xl font-semibold ${
+                          isPositive === true ? 'text-green-700' : 
+                          isPositive === false ? 'text-red-700' : 
+                          'text-gray-900'
+                        }`}>
+                          {displayValue}
                         </p>
+                        {benchmark && (
+                          <p className="text-xs text-gray-500 mt-1">{benchmark}</p>
+                        )}
                       </div>
                     );
                   })}
                 </div>
                 {agents.FinanceExpert.data.unit_economics.analysis && (
-                  <p className="mt-3 text-sm text-gray-600">
-                    {agents.FinanceExpert.data.unit_economics.analysis}
-                  </p>
+                  <div className="mt-4 p-3 bg-blue-50 rounded-md border border-blue-100">
+                    <p className="text-sm text-blue-700">
+                      {typeof agents.FinanceExpert.data.unit_economics.analysis === 'string' 
+                        ? agents.FinanceExpert.data.unit_economics.analysis
+                        : JSON.stringify(agents.FinanceExpert.data.unit_economics.analysis, null, 2)}
+                    </p>
+                  </div>
                 )}
               </div>
             )}
             
+            {/* Financial Health */}
             {agents.FinanceExpert.data.financial_health && (
-              <div className="mt-6 border-t pt-4">
-                <h4 className="font-medium text-gray-900 mb-3">Financial Health</h4>
+              <div className="bg-white p-5 rounded-lg border border-gray-100 shadow-sm">
+                <div className="flex items-center mb-4">
+                  <div className="p-2 bg-teal-100 rounded-full mr-3">
+                    <TrendingUp className="h-5 w-5 text-teal-600" />
+                  </div>
+                  <h3 className="text-lg font-semibold text-gray-900">Financial Health</h3>
+                </div>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   {Object.entries(agents.FinanceExpert.data.financial_health).map(([key, value]) => {
-                    if (value === null || key === 'analysis') return null;
+                    if (value === null || value === undefined || key === 'analysis') return null;
+                    
+                    let displayValue, subValue, isPositive;
+                    
+                    // Handle different value types
+                    if (value && typeof value === 'object') {
+                      // Handle burn rate object with monthly/annual properties
+                      if ('monthly' in value && 'annual' in value) {
+                        const monthly = (value as { monthly?: number }).monthly || 0;
+                        const annual = (value as { annual?: number }).annual || 0;
+                        isPositive = annual >= 0;
+                        
+                        displayValue = new Intl.NumberFormat('en-US', { 
+                          style: 'currency', 
+                          currency: 'USD',
+                          minimumFractionDigits: 0,
+                          maximumFractionDigits: 0
+                        }).format(monthly);
+                        
+                        subValue = new Intl.NumberFormat('en-US', { 
+                          style: 'currency', 
+                          currency: 'USD',
+                          minimumFractionDigits: 0,
+                          maximumFractionDigits: 0
+                        }).format(annual) + ' annual';
+                      } else {
+                        displayValue = JSON.stringify(value, null, 2);
+                      }
+                    } else if (typeof value === 'number') {
+                      isPositive = value >= 0;
+                      // Format as percentage if the key contains 'rate' or 'ratio'
+                      if (key.includes('rate') || key.includes('ratio') || key.includes('margin')) {
+                        displayValue = new Intl.NumberFormat('en-US', { 
+                          style: 'percent',
+                          minimumFractionDigits: 1,
+                          maximumFractionDigits: 1
+                        }).format(value / 100);
+                      } else {
+                        // Format as currency for other numbers
+                        displayValue = new Intl.NumberFormat('en-US', { 
+                          style: 'currency', 
+                          currency: 'USD',
+                          minimumFractionDigits: 0,
+                          maximumFractionDigits: 0
+                        }).format(value);
+                      }
+                    } else {
+                      displayValue = value || 'N/A';
+                    }
+                    
                     return (
-                      <div key={key} className="bg-gray-50 p-3 rounded-lg">
-                        <p className="text-sm text-gray-500 capitalize">
-                          {key.split('_').join(' ')}
+                      <div key={key} className={`p-4 rounded-lg border ${
+                        isPositive === true ? 'border-green-100 bg-green-50' : 
+                        isPositive === false ? 'border-red-100 bg-red-50' : 
+                        'border-gray-100 bg-gray-50'
+                      }`}>
+                        <p className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">
+                          {key.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}
                         </p>
-                        <p className="font-medium text-gray-900">
-                          {typeof value === 'number' ? value.toLocaleString() : value || 'N/A'}
+                        <p className={`text-xl font-semibold ${
+                          isPositive === true ? 'text-green-700' : 
+                          isPositive === false ? 'text-red-700' : 
+                          'text-gray-900'
+                        }`}>
+                          {displayValue}
                         </p>
+                        {subValue && (
+                          <p className="text-xs text-gray-500 mt-1">{subValue}</p>
+                        )}
                       </div>
                     );
                   })}
                 </div>
                 {agents.FinanceExpert.data.financial_health.analysis && (
-                  <p className="mt-3 text-sm text-gray-600">
-                    {agents.FinanceExpert.data.financial_health.analysis}
-                  </p>
+                  <div className="mt-4 p-3 bg-blue-50 rounded-md border border-blue-100">
+                    <p className="text-sm text-blue-700">
+                      {agents.FinanceExpert.data.financial_health.analysis}
+                    </p>
+                  </div>
                 )}
               </div>
             )}
+            
+            {/* Funding Rounds */}
+            {agents.FinanceExpert.data.funding_rounds && agents.FinanceExpert.data.funding_rounds.length > 0 && (
+              <div className="bg-white p-5 rounded-lg border border-gray-100 shadow-sm">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center">
+                    <div className="p-2 bg-purple-100 rounded-full mr-3">
+                      <TrendingUp className="h-5 w-5 text-purple-600" />
+                    </div>
+                    <h3 className="text-lg font-semibold text-gray-900">Funding History</h3>
+                  </div>
+                  <div className="text-sm text-gray-500">
+                    {agents.FinanceExpert.data.funding_rounds.length} round{agents.FinanceExpert.data.funding_rounds.length !== 1 ? 's' : ''}
+                  </div>
+                </div>
+                
+                <div className="space-y-4">
+                  {agents.FinanceExpert.data.funding_rounds
+                    .sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime())
+                    .map((round: any, index: number) => (
+                      <div key={index} className="border-l-4 border-purple-500 pl-4 py-2">
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <h4 className="font-medium text-gray-900">
+                              {round.type} Round • {new Date(round.date).toLocaleDateString('en-US', { year: 'numeric', month: 'long' })}
+                            </h4>
+                            <div className="mt-1 space-y-1">
+                              <div className="flex items-center text-sm text-gray-700">
+                                <span className="font-medium w-24">Amount:</span>
+                                <span className="font-mono">
+                                  {new Intl.NumberFormat('en-US', { 
+                                    style: 'currency', 
+                                    currency: 'USD',
+                                    minimumFractionDigits: 0,
+                                    maximumFractionDigits: 0
+                                  }).format(round.amount)}
+                                </span>
+                              </div>
+                              {round.valuation && (
+                                <div className="flex items-center text-sm text-gray-700">
+                                  <span className="font-medium w-24">Valuation:</span>
+                                  <span className="font-mono">
+                                    {new Intl.NumberFormat('en-US', { 
+                                      style: 'currency', 
+                                      currency: 'USD',
+                                      minimumFractionDigits: 0,
+                                      maximumFractionDigits: 0
+                                    }).format(round.valuation)}
+                                  </span>
+                                </div>
+                              )}
+                              {round.investors && round.investors.length > 0 && (
+                                <div className="flex items-start text-sm text-gray-700">
+                                  <span className="font-medium w-24 flex-shrink-0">Investors:</span>
+                                  <span>{round.investors.join(', ')}</span>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                          {index === 0 && agents.FinanceExpert.data.funding_rounds.length > 1 && (
+                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                              Most Recent
+                            </span>
+                          )}
+                        </div>
+                        {round.purpose && (
+                          <p className="mt-2 text-sm text-gray-600">
+                            <span className="font-medium">Purpose:</span> {round.purpose}
+                          </p>
+                        )}
+                      </div>
+                    ))}
+                </div>
+                
+                {/* Funding Insights */}
+                <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-100">
+                  <h4 className="font-medium text-blue-800 mb-2">Investment Insights</h4>
+                  <ul className="space-y-2 text-sm text-blue-700">
+                    {agents.FinanceExpert.data.funding_rounds.length > 1 ? (
+                      <>
+                        <li className="flex items-start">
+                          <span className="text-blue-500 mr-2">•</span>
+                          <span>Company has raised {agents.FinanceExpert.data.funding_rounds.length} funding rounds to date.</span>
+                        </li>
+                        <li className="flex items-start">
+                          <span className="text-blue-500 mr-2">•</span>
+                          <span>Most recent round: {agents.FinanceExpert.data.funding_rounds[0].type} round of {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(agents.FinanceExpert.data.funding_rounds[0].amount)}</span>
+                        </li>
+                        {agents.FinanceExpert.data.funding_rounds[0].valuation && (
+                          <li className="flex items-start">
+                            <span className="text-blue-500 mr-2">•</span>
+                            <span>Current valuation: {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(agents.FinanceExpert.data.funding_rounds[0].valuation)}</span>
+                          </li>
+                        )}
+                      </>
+                    ) : (
+                      <li className="flex items-start">
+                        <span className="text-blue-500 mr-2">•</span>
+                        <span>Company has raised {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(agents.FinanceExpert.data.funding_rounds[0].amount)} in a {agents.FinanceExpert.data.funding_rounds[0].type} round.</span>
+                      </li>
+                    )}
+                    
+                    {/* Add more insights based on funding data */}
+                    {agents.FinanceExpert.data.funding_rounds.some((r: any) => r.type === 'Series A') && (
+                      <li className="flex items-start">
+                        <span className="text-blue-500 mr-2">•</span>
+                        <span>Successfully raised Series A, indicating strong market validation.</span>
+                      </li>
+                    )}
+                    
+                    {agents.FinanceExpert.data.funding_rounds.some((r: any) => r.type === 'Seed') && (
+                      <li className="flex items-start">
+                        <span className="text-blue-500 mr-2">•</span>
+                        <span>Raised seed funding, typical for early-stage companies with proven concept.</span>
+                      </li>
+                    )}
+                    
+                    {agents.FinanceExpert.data.funding_rounds.length >= 3 && (
+                      <li className="flex items-start">
+                        <span className="text-blue-500 mr-2">•</span>
+                        <span>Multiple funding rounds suggest investor confidence and growth potential.</span>
+                      </li>
+                    )}
+                  </ul>
+                </div>
+              </div>
+            )}
+            
+            {/* Financial Analysis & Insights */}
+            <div className="bg-white p-5 rounded-lg border border-gray-100 shadow-sm">
+              <div className="flex items-center mb-4">
+                <div className="p-2 bg-amber-100 rounded-full mr-3">
+                  <Info className="h-5 w-5 text-amber-600" />
+                </div>
+                <h3 className="text-lg font-semibold text-gray-900">Financial Insights & Analysis</h3>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Strengths */}
+                <div className="bg-green-50 p-4 rounded-lg border border-green-100">
+                  <h4 className="font-medium text-green-800 flex items-center mb-3">
+                    <CheckCircle2 className="h-4 w-4 mr-2 text-green-500" />
+                    Key Strengths
+                  </h4>
+                  <ul className="space-y-2">
+                    {[
+                      (agents.FinanceExpert.data.unit_economics?.ltv_cac_ratio && 
+                      (typeof agents.FinanceExpert.data.unit_economics.ltv_cac_ratio === 'number' 
+                        ? agents.FinanceExpert.data.unit_economics.ltv_cac_ratio > 3
+                        : (agents.FinanceExpert.data.unit_economics.ltv_cac_ratio as FinancialValue)?.value as number > 3)) ? 
+                        'Strong unit economics with LTV:CAC ratio above 3:1, indicating efficient customer acquisition.' : 
+                        'Healthy unit economics with room for optimization.',
+                      (agents.FinanceExpert.data.financial_health?.runway_months && 
+                      (typeof agents.FinanceExpert.data.financial_health.runway_months === 'number'
+                        ? agents.FinanceExpert.data.financial_health.runway_months > 12
+                        : (agents.FinanceExpert.data.financial_health.runway_months as FinancialValue)?.value as number > 12)) ? 
+                        'Substantial cash runway of over 12 months, providing stability for growth.' :
+                        'Adequate cash runway for current operations.',
+                      agents.FinanceExpert.data.funding_rounds?.length > 0 ?
+                        'Successful fundraising history with multiple investors.' :
+                        'Early-stage company with initial funding secured.'
+                    ].map((item, i) => (
+                      <li key={i} className="flex items-start">
+                        <span className="text-green-500 mr-2">•</span>
+                        <span className="text-sm text-gray-700">{item}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+                
+                {/* Risks */}
+                <div className="bg-red-50 p-4 rounded-lg border border-red-100">
+                  <h4 className="font-medium text-red-800 flex items-center mb-3">
+                    <AlertCircle className="h-4 w-4 mr-2 text-red-500" />
+                    Potential Risks
+                  </h4>
+                  <ul className="space-y-2">
+                    {[
+                      (() => {
+                        const burnRate = agents.FinanceExpert.data.financial_health?.burn_rate;
+                        const monthlyBurn = burnRate && (
+                          typeof burnRate === 'object' && 'monthly' in burnRate 
+                            ? (burnRate as { monthly?: number }).monthly 
+                            : (burnRate as FinancialValue)?.value as number
+                        );
+                        return monthlyBurn && monthlyBurn > 500000;
+                      })() ?
+                        'High monthly burn rate may require additional funding in the near term.' :
+                        'Monitor burn rate to ensure sustainable operations.',
+                      (() => {
+                        const payback = agents.FinanceExpert.data.unit_economics?.payback_period;
+                        const months = payback && (
+                          typeof payback === 'object' && 'months' in payback
+                            ? (payback as { months: number }).months
+                            : (payback as FinancialValue)?.value as number
+                        );
+                        return months && months > 12;
+                      })() ?
+                        'Extended payback period may impact cash flow and growth potential.' :
+                        'Customer acquisition payback period is within industry norms.',
+                      agents.FinanceExpert.data.funding_rounds?.length === 0 ?
+                        'Limited funding history may indicate higher risk for investors.' :
+                        'Diversified investor base reduces dependency on a single source.'
+                    ].map((item, i) => (
+                      <li key={i} className="flex items-start">
+                        <span className="text-red-500 mr-2">•</span>
+                        <span className="text-sm text-gray-700">{item}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+              
+              {/* Recommendations */}
+              <div className="mt-6 bg-blue-50 p-4 rounded-lg border border-blue-100">
+                <h4 className="font-medium text-blue-800 mb-3">Recommendations</h4>
+                <ul className="space-y-2">
+                  {[
+                    'Consider additional funding rounds to extend runway and accelerate growth.',
+                    'Focus on improving unit economics through customer retention and monetization strategies.',
+                    'Monitor cash burn rate and adjust spending to align with revenue growth.',
+                    'Explore strategic partnerships to enhance market position and reduce customer acquisition costs.'
+                  ].map((item, i) => (
+                    <li key={i} className="flex items-start">
+                      <span className="text-blue-500 mr-2">•</span>
+                      <span className="text-sm text-blue-700">{item}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
             
             {agents.FinanceExpert.data.projections && (
               <div className="mt-6 border-t pt-4">
@@ -664,10 +1193,39 @@ export const AnalysisResult: React.FC<AnalysisResultProps> = ({ result }) => {
                   
                   {agents.FinanceExpert.data.projections.sensitivity_analysis && (
                     <div>
-                      <h5 className="text-sm font-medium text-gray-700 mb-1">Sensitivity Analysis</h5>
-                      <p className="text-sm text-gray-600">
-                        {agents.FinanceExpert.data.projections.sensitivity_analysis}
-                      </p>
+                      <h5 className="text-sm font-medium text-gray-700 mb-2">Sensitivity Analysis</h5>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        {Object.entries(agents.FinanceExpert.data.projections.sensitivity_analysis).map(([scenario, data]) => (
+                          <div key={scenario} className="bg-gray-50 p-3 rounded-lg border border-gray-200">
+                            <h6 className="text-sm font-medium text-gray-700 capitalize mb-1">
+                              {scenario.replace('_', ' ')}
+                            </h6>
+                            {typeof data === 'object' && data !== null ? (
+                              <div className="space-y-1">
+                                {Object.entries(data).map(([key, value]) => (
+                                  <div key={key} className="flex justify-between text-sm">
+                                    <span className="text-gray-600 capitalize">{key.replace('_', ' ')}:</span>
+                                    <span className="font-medium text-gray-900">
+                                      {typeof value === 'number' 
+                                        ? value.toLocaleString(undefined, { 
+                                            style: key === 'revenue' ? 'currency' : 'decimal',
+                                            currency: 'USD',
+                                            minimumFractionDigits: 0,
+                                            maximumFractionDigits: 0
+                                          })
+                                        : String(value) || 'N/A'}
+                                    </span>
+                                  </div>
+                                ))}
+                              </div>
+                            ) : (
+                              <p className="text-sm text-gray-600">
+                                {String(data) || 'No data available'}
+                              </p>
+                            )}
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   )}
                   
@@ -711,11 +1269,11 @@ export const AnalysisResult: React.FC<AnalysisResultProps> = ({ result }) => {
                   <p className="text-sm text-purple-700">Team Composition Score</p>
                   <div className="flex items-center mt-1">
                     <span className="text-2xl font-bold text-purple-800">
-                      {agents.TeamEvaluator.data.team_analysis.team_composition.completeness_score}/10
+                      {agents?.TeamEvaluator?.data?.team_analysis?.team_composition?.completeness_score ?? 'N/A'}/10
                     </span>
                     <div className="ml-auto w-16">
                       <Progress 
-                        value={agents.TeamEvaluator.data.team_analysis.team_composition.completeness_score * 10} 
+                        value={(agents?.TeamEvaluator?.data?.team_analysis?.team_composition?.completeness_score ?? 0) * 10} 
                         className="h-2 bg-purple-100"
                         indicatorClassName="bg-purple-500"
                       />

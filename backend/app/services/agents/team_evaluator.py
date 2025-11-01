@@ -97,6 +97,11 @@ class TeamEvaluator(BaseAgent):
                 # Ensure team_analysis is a dictionary
                 if not isinstance(team_analysis, dict):
                     team_analysis = {
+                        "team_composition": {
+                            "strengths": [],
+                            "gaps": ["Insufficient information to analyze team"],
+                            "completeness_score": 5  # Default score on a scale of 1-10
+                        },
                         "error": f"Unexpected team_analysis type: {type(team_analysis).__name__}",
                         "raw_response": response
                     }
