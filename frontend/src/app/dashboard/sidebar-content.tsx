@@ -59,13 +59,13 @@ export function SidebarContent() {
 
       <div className="flex-1 overflow-y-auto">
         <SidebarSection>
-          <SidebarLink
+          {/* <SidebarLink
             link={{
               label: "Dashboard",
               href: "/dashboard",
               icon: <LayoutDashboard className="h-5 w-5" />,
             }}
-          />
+          /> */}
           <SidebarLink
             link={{
               label: "Deal Analysis",
@@ -73,13 +73,13 @@ export function SidebarContent() {
               icon: <SearchCheck className="h-5 w-5" />,
             }}
           />
-          <SidebarLink
+          {/* <SidebarLink
             link={{
               label: "Past Deals",
               href: "/dashboard/analytics",
               icon: <BarChart3 className="h-5 w-5" />,
             }}
-          />
+          /> */}
         </SidebarSection>
 
         <SidebarSection className="mt-auto mb-4">

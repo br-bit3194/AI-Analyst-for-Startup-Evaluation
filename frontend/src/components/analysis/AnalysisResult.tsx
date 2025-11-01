@@ -380,85 +380,6 @@ export const AnalysisResult: React.FC<AnalysisResultProps> = ({ result }) => {
         </CardContent>
       </Card>
 
-      {/* Committee Analysis */}
-      <Card className="bg-white shadow-sm">
-        <CardHeader className="bg-purple-50 border-b border-purple-100">
-          <div className="flex items-center justify-between">
-            <CardTitle className="flex items-center text-gray-900">
-              <Users className="h-5 w-5 mr-2 text-purple-600" />
-              Committee Analysis
-            </CardTitle>
-            <Badge variant="outline" className="bg-white text-purple-700 border-purple-200">
-              {safeVerdict.committee_analysis?.members?.length || 0} Members
-            </Badge>
-          </div>
-          <CardDescription className="text-gray-600">
-            {safeVerdict.committee_analysis?.summary || 'No committee analysis available for this evaluation'}
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-6">
-            {final_verdict?.committee_analysis ? (
-              <>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {final_verdict.committee_analysis.members?.map((member: any) => (
-                    <div 
-                      key={member.name} 
-                      className="border rounded-lg p-4 hover:shadow-md transition-shadow"
-                    >
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <h4 className="font-medium">{member.name}</h4>
-                          <p className="text-sm text-gray-500">{member.role}</p>
-                        </div>
-                        <div className={`px-2 py-0.5 rounded-full text-xs font-medium ${
-                          member.vote === 'STRONG_INVEST' ? 'bg-green-100 text-green-800' :
-                          member.vote === 'CONSIDER' ? 'bg-yellow-100 text-yellow-800' :
-                          'bg-red-100 text-red-800'
-                        }`}>
-                          {member.vote.replace('_', ' ')}
-                        </div>
-                      </div>
-                      <div className="mt-3">
-                        <div className="flex justify-between text-xs text-gray-500 mb-1">
-                          <span>Confidence</span>
-                          <span>{member.confidence}%</span>
-                        </div>
-                        <AnalysisProgress value={member.confidence} className="h-1.5" />
-                      </div>
-                      {member.reasoning && (
-                        <p className="mt-2 text-sm text-gray-600">{member.reasoning}</p>
-                      )}
-                    </div>
-                  ))}
-                </div>
-                {final_verdict.committee_analysis.dissenting_opinions?.length > 0 && (
-                <div className="border-l-4 border-yellow-400 bg-yellow-50 p-4 rounded-r">
-                  <h4 className="font-medium text-yellow-800 flex items-center">
-                    <AlertCircle className="h-4 w-4 mr-1" />
-                    Dissenting Opinions
-                  </h4>
-                  <ul className="mt-2 space-y-2 text-sm text-yellow-700">
-                    {final_verdict.committee_analysis.dissenting_opinions.map((opinion: string, i: number) => (
-                      <li key={i} className="flex items-start">
-                        <span className="mr-2">•</span>
-                        <span>{opinion}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-            </>
-          ) : (
-            <div className="p-6 text-center">
-              <p className="text-gray-500">
-                The committee analysis is not available for this evaluation. This could be because the analysis is still in progress or the feature is not enabled.
-              </p>
-            </div>
-          )}
-        </div>
-      </CardContent>
-    </Card>
 
       {/* Risk Analysis */}
       {agents.RiskAnalyst?.data?.risk_analysis && (
@@ -1171,6 +1092,86 @@ export const AnalysisResult: React.FC<AnalysisResultProps> = ({ result }) => {
           </CardContent>
         </Card>
       )}
+      
+      {/* Committee Analysis */}
+      <Card className="bg-white shadow-sm">
+        <CardHeader className="bg-purple-50 border-b border-purple-100">
+          <div className="flex items-center justify-between">
+            <CardTitle className="flex items-center text-gray-900">
+              <Users className="h-5 w-5 mr-2 text-purple-600" />
+              Committee Analysis
+            </CardTitle>
+            <Badge variant="outline" className="bg-white text-purple-700 border-purple-200">
+              {safeVerdict.committee_analysis?.members?.length || 0} Members
+            </Badge>
+          </div>
+          <CardDescription className="text-gray-600">
+            {safeVerdict.committee_analysis?.summary || 'No committee analysis available for this evaluation'}
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-6">
+            {final_verdict?.committee_analysis ? (
+              <>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {final_verdict.committee_analysis.members?.map((member: any) => (
+                    <div 
+                      key={member.name} 
+                      className="border rounded-lg p-4 hover:shadow-md transition-shadow"
+                    >
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <h4 className="font-medium">{member.name}</h4>
+                          <p className="text-sm text-gray-500">{member.role}</p>
+                        </div>
+                        <div className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                          member.vote === 'STRONG_INVEST' ? 'bg-green-100 text-green-800' :
+                          member.vote === 'CONSIDER' ? 'bg-yellow-100 text-yellow-800' :
+                          'bg-red-100 text-red-800'
+                        }`}>
+                          {member.vote.replace('_', ' ')}
+                        </div>
+                      </div>
+                      <div className="mt-3">
+                        <div className="flex justify-between text-xs text-gray-500 mb-1">
+                          <span>Confidence</span>
+                          <span>{member.confidence}%</span>
+                        </div>
+                        <AnalysisProgress value={member.confidence} className="h-1.5" />
+                      </div>
+                      {member.reasoning && (
+                        <p className="mt-2 text-sm text-gray-600">{member.reasoning}</p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+                {final_verdict.committee_analysis.dissenting_opinions?.length > 0 && (
+                <div className="border-l-4 border-yellow-400 bg-yellow-50 p-4 rounded-r">
+                  <h4 className="font-medium text-yellow-800 flex items-center">
+                    <AlertCircle className="h-4 w-4 mr-1" />
+                    Dissenting Opinions
+                  </h4>
+                  <ul className="mt-2 space-y-2 text-sm text-yellow-700">
+                    {final_verdict.committee_analysis.dissenting_opinions.map((opinion: string, i: number) => (
+                      <li key={i} className="flex items-start">
+                        <span className="mr-2">•</span>
+                        <span>{opinion}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </>
+          ) : (
+            <div className="p-6 text-center">
+              <p className="text-gray-500">
+                The committee analysis is not available for this evaluation. This could be because the analysis is still in progress or the feature is not enabled.
+              </p>
+            </div>
+          )}
+        </div>
+      </CardContent>
+    </Card>
     </div>
   );
 }
