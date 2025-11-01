@@ -1,46 +1,23 @@
-# Use an official Python runtime as a parent image
-FROM python:3.10-slim
-
-# Set environment variables
-ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1 \
-    PYTHONPATH=/app \
-    PIP_NO_CACHE_DIR=1 \
-    DEBIAN_FRONTEND=noninteractive
+FROM python:3.12-slim
 
 # Install system dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential \
-    tesseract-ocr \
-    tesseract-ocr-eng \
-    libtesseract-dev \
-    poppler-utils \
-    libgl1-mesa-glx \
-    libglib2.0-0 \
-    libsm6 \
-    libxext6 \
-    libxrender1 \
+RUN apt-get update && apt-get install -y \
+    libmagic1 \
     && rm -rf /var/lib/apt/lists/*
 
-# Set the working directory in the container
 WORKDIR /app
 
-# Copy only the requirements file first to leverage Docker cache
-COPY ./requirements.txt .
-
-# Install Python dependencies
-RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir -r requirements.txt
-
-# Copy the rest of the application code
+# Copy the application files
 COPY . .
 
-# Create a non-root user and switch to it
-RUN useradd -m appuser && chown -R appuser:appuser /app
-USER appuser
+# Install dependencies
+RUN pip install --no-cache-dir -r requirements.txt
 
-# Expose the port the app runs on
+# Copy the .env file into the container
+COPY .env /env/.env
+
+# Expose the port FastAPI will run on
 EXPOSE 8000
 
-# Command to run the application
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Run Gunicorn with Uvicorn workers
+CMD ["bash", "-c", "cp /env/.env /app/.env && uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 4 --proxy-headers --forwarded-allow-ips \"*\""]
