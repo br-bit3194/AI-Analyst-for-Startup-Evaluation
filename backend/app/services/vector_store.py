@@ -3,7 +3,7 @@ import json
 import numpy as np
 import faiss
 from typing import List, Dict, Optional, Tuple
-from sentence_transformers import SentenceTransformer
+# from sentence_transformers import SentenceTransformer
 from pathlib import Path
 import logging
 import hashlib
