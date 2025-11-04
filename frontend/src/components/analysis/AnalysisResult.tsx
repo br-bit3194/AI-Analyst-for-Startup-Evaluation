@@ -47,7 +47,7 @@ interface FinancialValue {
 }
 
 interface FinancialMetrics {
-  [key: string]: FinancialValue | number | null | undefined;
+  [key: string]: FinancialValue | number | { months: number } | { monthly: number; annual: number } | null | undefined;
 }
 
 interface UnitEconomics extends FinancialMetrics {

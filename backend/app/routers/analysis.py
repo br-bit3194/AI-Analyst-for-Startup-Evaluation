@@ -30,6 +30,27 @@ router_logger = AgentLogger("analysis_router")
 analysis_results = {}
 analysis_callbacks = {}
 
+def store_analysis_result(analysis_id: str, status: str, result: Any = None, message: str = None):
+    """Helper function to safely store analysis results"""
+    try:
+        # Ensure the result is JSON serializable
+        if result is not None:
+            json.dumps(result)  # Test serialization
+        analysis_results[analysis_id] = {
+            "status": status,
+            "result": result,
+            "message": message,
+            "timestamp": datetime.utcnow().isoformat()
+        }
+    except (TypeError, OverflowError) as e:
+        # If serialization fails, store a string representation
+        analysis_results[analysis_id] = {
+            "status": "error",
+            "result": None,
+            "message": f"Error in analysis result serialization: {str(e)}",
+            "timestamp": datetime.utcnow().isoformat()
+        }
+
 # Models
 class AnalysisRequest(BaseModel):
     pitch: str
@@ -222,6 +243,13 @@ async def run_analysis(analysis_id: str, pitch: str, file: Optional[UploadFile] 
             {"pitch_length": len(pitch) if pitch else 0}
         )
         
+        # Store initial status
+        store_analysis_result(
+            analysis_id=analysis_id,
+            status="processing",
+            message="Starting analysis..."
+        )
+        
         # Run the committee analysis with progress updates
         start_time = datetime.utcnow()
         await update_progress("Starting analysis...", 10)
@@ -265,16 +293,14 @@ async def run_analysis(analysis_id: str, pitch: str, file: Optional[UploadFile] 
                 level="error"
             )
         
-        # Format the result
-        formatted_result = {
-            "analysisId": analysis_id,
-            "status": "completed",
-            "result": result,
-            "timestamp": datetime.utcnow().isoformat()
-        }
+        # Store the successful result
+        store_analysis_result(
+            analysis_id=analysis_id,
+            status="completed",
+            result=result,
+            message="Analysis completed successfully"
+        )
         
-        # Store the result
-        analysis_results[analysis_id] = formatted_result
         await update_progress("Analysis complete!", 100)
         
         # If there's a webhook URL, notify it
@@ -282,9 +308,11 @@ async def run_analysis(analysis_id: str, pitch: str, file: Optional[UploadFile] 
             webhook_start = datetime.utcnow()
             try:
                 async with httpx.AsyncClient() as client:
+                    # Get the stored result to ensure we're sending the latest version
+                    stored_result = analysis_results.get(analysis_id, {})
                     response = await client.post(
                         analysis_callbacks[analysis_id],
-                        json=formatted_result,
+                        json=stored_result,
                         timeout=10.0
                     )
                     logger.log_event(
@@ -304,35 +332,36 @@ async def run_analysis(analysis_id: str, pitch: str, file: Optional[UploadFile] 
     
     except Exception as e:
         # Log the error
+        error_msg = f"Error during analysis: {str(e)}"
         logger.log_event(
             "analysis_failed",
-            f"Error during analysis: {str(e)}",
+            error_msg,
             {"error_type": type(e).__name__},
             level="error"
         )
         
-        # Store the error
-        error_result = {
-            "analysisId": analysis_id,
-            "status": "error",
-            "message": str(e),
-            "timestamp": datetime.utcnow().isoformat()
-        }
-        analysis_results[analysis_id] = error_result
+        # Store the error using our helper function
+        store_analysis_result(
+            analysis_id=analysis_id,
+            status="error",
+            message=error_msg
+        )
         
         # If there's a webhook URL, notify it about the error
         if analysis_callbacks.get(analysis_id):
             try:
                 webhook_start = datetime.utcnow()
                 async with httpx.AsyncClient() as client:
+                    # Get the stored error result to ensure we're sending the latest version
+                    stored_result = analysis_results.get(analysis_id, {})
                     response = await client.post(
                         analysis_callbacks[analysis_id],
-                        json=error_result,
+                        json=stored_result,
                         timeout=10.0
                     )
                     logger.log_event(
                         "error_webhook_sent",
-                        f"Sent error notification to webhook",
+                        "Sent error notification to webhook",
                         {
                             "status_code": response.status_code,
                             "duration_seconds": (datetime.utcnow() - webhook_start).total_seconds()
@@ -357,31 +386,80 @@ async def evaluate_pitch(
     # Generate a unique ID for this analysis
     analysis_id = str(uuid.uuid4())
     
-    # Store initial status
-    analysis_results[analysis_id] = {
-        'status': 'processing',
-        'started_at': str(asyncio.get_event_loop().time())
-    }
+    # Create a logger for this request
+    logger = AgentLogger("api_request", analysis_id)
     
-    # Store callback URL if provided
-    if request.callback_url:
-        analysis_callbacks[analysis_id] = request.callback_url
-    
-    # Start the analysis in the background
-    background_tasks.add_task(
-        run_analysis,
-        analysis_id=analysis_id,
-        pitch=request.pitch,
-        file=request.file
-    )
-    
-    # Return immediately with the analysis ID
-    return {
-        "analysisId": analysis_id,
-        "status": "processing",
-        "message": "Analysis started. Use the analysis_id to check status."
-    }
-    # }
+    try:
+        # Log the analysis request
+        logger.log_event(
+            "analysis_requested",
+            "Received request to analyze startup pitch",
+            {
+                "pitch_length": len(request.pitch) if request.pitch else 0,
+                "has_file": request.file is not None,
+                "has_callback": bool(request.callback_url)
+            }
+        )
+        
+        # Store initial status using our helper function
+        store_analysis_result(
+            analysis_id=analysis_id,
+            status="processing",
+            message="Analysis request received and queued for processing"
+        )
+        
+        # Store callback URL if provided
+        if request.callback_url:
+            analysis_callbacks[analysis_id] = request.callback_url
+            logger.log_event(
+                "callback_registered",
+                f"Registered callback URL: {request.callback_url}",
+                {"callback_url": request.callback_url}
+            )
+        
+        # Start the analysis in the background
+        background_tasks.add_task(
+            run_analysis,
+            analysis_id=analysis_id,
+            pitch=request.pitch,
+            file=request.file
+        )
+        
+        logger.log_event(
+            "analysis_started",
+            "Background analysis task started",
+            {"analysis_id": analysis_id}
+        )
+        
+        # Return immediately with the analysis ID
+        return {
+            "analysisId": analysis_id,
+            "status": "processing",
+            "message": "Analysis started. Use the analysisId to check status."
+        }
+        
+    except Exception as e:
+        # Log the error
+        error_msg = f"Failed to start analysis: {str(e)}"
+        logger.log_event(
+            "analysis_start_failed",
+            error_msg,
+            {"error_type": type(e).__name__},
+            level="error"
+        )
+        
+        # Store the error state
+        store_analysis_result(
+            analysis_id=analysis_id,
+            status="error",
+            message=error_msg
+        )
+        
+        # Re-raise the exception with a 500 status code
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=error_msg
+        )
 
 @router.get("/status/{analysis_id}", response_model=AnalysisResponse)
 @router.get("/{analysis_id}", response_model=AnalysisResponse, include_in_schema=False)
@@ -426,33 +504,62 @@ async def get_analysis_status(analysis_id: str, request: Request):
             {"status": result.get("status")}
         )
         
-        # Format the response
+        # Create a clean response dictionary
         response = {
             "analysisId": analysis_id,
             "status": result.get("status", "unknown"),
             "result": result.get("result"),
-            "message": str(result.get("message", ""))  # Ensure message is always a string
+            "message": str(result.get("message", ""))
         }
         
-        # If status is error, ensure we have a proper error message
+        # Handle error status
         if response["status"] == "error":
             if not response["message"] and response["result"]:
                 response["message"] = str(response["result"])
             elif not response["message"]:
                 response["message"] = "An unknown error occurred"
         
-        # Format the summary if it exists
-        if response.get("result") and isinstance(response["result"], dict) and "summary" in response["result"]:
-            summary = response["result"]["summary"]
-            if isinstance(summary, dict):
-                response["result"]["summary"] = {
-                    'keyInsights': summary.get('key_insights', summary.get('keyInsights', [])),
-                    'strengths': summary.get('strengths', []),
-                    'concerns': summary.get('concerns', []),
-                    'recommendations': summary.get('recommendations', [])
-                }
+        # Clean and format the result
+        if isinstance(response.get("result"), dict):
+            # Ensure all values are JSON serializable
+            clean_result = {}
+            for key, value in response["result"].items():
+                try:
+                    # Convert any non-serializable objects to strings
+                    json.dumps({key: value})  # Test serialization
+                    clean_result[key] = value
+                except (TypeError, OverflowError):
+                    clean_result[key] = str(value)
+            response["result"] = clean_result
+            
+            # Format the summary if it exists
+            if "summary" in response["result"]:
+                summary = response["result"]["summary"]
+                if isinstance(summary, dict):
+                    response["result"]["summary"] = {
+                        'keyInsights': summary.get('key_insights', summary.get('keyInsights', [])),
+                        'strengths': summary.get('strengths', []),
+                        'concerns': summary.get('concerns', []),
+                        'recommendations': summary.get('recommendations', [])
+                    }
         
-        return response
+        # Ensure the final response is JSON serializable
+        try:
+            json.dumps(response)
+            return response
+        except (TypeError, OverflowError) as e:
+            logger.log_event(
+                "serialization_error",
+                f"Failed to serialize response: {str(e)}",
+                {"error_type": type(e).__name__},
+                level="error"
+            )
+            # Return a minimal valid response if serialization fails
+            return {
+                "analysisId": analysis_id,
+                "status": "error",
+                "message": "Failed to format analysis results"
+            }
         
     except HTTPException as he:
         # Re-raise HTTP exceptions
@@ -463,6 +570,10 @@ async def get_analysis_status(analysis_id: str, request: Request):
             f"Error checking status of analysis {analysis_id}: {str(e)}",
             {"error_type": type(e).__name__},
             level="error"
+        )
+        raise HTTPException(
+            status_code=500,
+            detail=f"Internal server error while checking analysis status: {str(e)}"
         )
         raise HTTPException(status_code=500, detail=str(e))
 
