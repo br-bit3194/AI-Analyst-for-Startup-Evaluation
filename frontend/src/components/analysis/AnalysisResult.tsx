@@ -46,8 +46,10 @@ interface FinancialValue {
   years?: number;
 }
 
+type FinancialValueType = FinancialValue | number | { months: number } | { monthly: number; annual: number } | null | undefined;
+
 interface FinancialMetrics {
-  [key: string]: FinancialValue | number | { months: number } | { monthly: number; annual: number } | null | undefined;
+  [key: string]: FinancialValueType;
 }
 
 interface UnitEconomics extends FinancialMetrics {
