@@ -1,3 +1,7 @@
 venv
 .env
 uploads
+docs/
+logs/
+scripts/
+tests/
