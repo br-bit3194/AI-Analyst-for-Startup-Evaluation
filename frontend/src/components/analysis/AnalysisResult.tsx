@@ -745,9 +745,9 @@ export const AnalysisResult: React.FC<AnalysisResultProps> = ({ result }) => {
               <div className="mt-2">
                 <div className="flex justify-between text-xs text-gray-500 mb-1">
                   <span>Confidence</span>
-                  <span>{Math.round(marketSize.confidence * 100)}%</span>
+                  <span>{Math.round((marketSize.confidence ?? 0) * 100)}%</span>
                 </div>
-                <Progress value={marketSize.confidence * 100} className="h-2" />
+                <Progress value={(marketSize.confidence ?? 0) * 100} className="h-2" />
               </div>
               {marketSize.notes && (
                 <p className="mt-2 text-xs text-gray-500 italic">{marketSize.notes}</p>
