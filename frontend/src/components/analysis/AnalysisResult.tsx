@@ -46,7 +46,7 @@ interface FinancialValue {
   years?: number;
 }
 
-type FinancialValueType = FinancialValue | number | { months: number } | { monthly: number; annual: number } | null | undefined;
+type FinancialValueType = FinancialValue | number | { months: number } | { monthly: number; annual: number } | null | undefined | { value: number | string; [key: string]: any };
 
 interface FinancialMetrics {
   [key: string]: FinancialValueType;
@@ -56,7 +56,7 @@ interface UnitEconomics extends FinancialMetrics {
   customer_acquisition_cost?: FinancialValue;
   lifetime_value?: FinancialValue;
   ltv_cac_ratio?: FinancialValue | number;
-  payback_period?: FinancialValue | { months: number };
+  payback_period?: FinancialValue | { months: number } | number;
   gross_margin?: FinancialValue | number;
   contribution_margin?: FinancialValue | number;
 }
@@ -179,6 +179,7 @@ export const AnalysisResult: React.FC<AnalysisResultProps> = ({ result }) => {
       error: string | null;
       confidence: number;
     };
+  } & {
     FinanceExpert?: {
       success: boolean;
       data: FinanceExpertData;
