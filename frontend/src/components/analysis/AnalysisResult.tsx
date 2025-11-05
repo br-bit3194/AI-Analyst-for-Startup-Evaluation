@@ -5,10 +5,7 @@ import {
   CardContent, 
   CardDescription, 
   CardHeader, 
-  CardTitle,
-  type CardDescriptionProps,
-  type CardHeaderProps,
-  type CardTitleProps
+  CardTitle
 } from '@/components/ui/card';
 import type { HTMLAttributes } from 'react';
 import type { ReactNode } from 'react';
