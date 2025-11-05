@@ -1,6 +1,7 @@
 import React from 'react';
 import { CheckCircle2, AlertCircle, Clock, XCircle, Info, Users, BarChart2 as BarChart, TrendingUp } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import type { ReactNode } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 
@@ -812,9 +813,13 @@ export const AnalysisResult: React.FC<AnalysisResultProps> = ({ result }) => {
     );
   };
 
+  // Ensure safeVerdict has a default recommendation
+  const finalSafeVerdict = result.final_verdict || { recommendation: 'PENDING', confidence: 0 };
+
   return (
     <div className="space-y-6 text-gray-800">
       {/* Header with overall recommendation */}
+      {/* @ts-ignore */}
       <Card className="bg-white shadow-sm">
         <CardHeader className="bg-gray-50 border-b">
           <div className="flex items-center justify-between">
@@ -822,11 +827,13 @@ export const AnalysisResult: React.FC<AnalysisResultProps> = ({ result }) => {
               <CardTitle className="text-2xl font-bold text-gray-900">Analysis Result</CardTitle>
               <CardDescription className="text-gray-600">Analysis ID: {result.analysis_id}</CardDescription>
             </div>
-            <Badge 
-              className={`${getRecommendationColor(safeVerdict.recommendation)} text-sm font-medium px-3 py-1`}
-            >
-              {safeVerdict.recommendation.replace(/_/g, ' ')}
-            </Badge>
+            {finalSafeVerdict.recommendation && (
+              <Badge 
+                className={`${getRecommendationColor(finalSafeVerdict.recommendation)} text-sm font-medium px-3 py-1`}
+              >
+                {finalSafeVerdict.recommendation.replace(/_/g, ' ')}
+              </Badge>
+            )}
           </div>
         </CardHeader>
         <CardContent>
