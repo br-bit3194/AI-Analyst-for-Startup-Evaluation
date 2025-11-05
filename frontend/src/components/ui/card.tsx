@@ -7,9 +7,13 @@ interface CardProps extends React.HTMLAttributes<HTMLDivElement> {
   className?: string;
 }
 
-// Main Card component
-export const Card = React.forwardRef<HTMLDivElement, CardProps>(
-  ({ className, children, ...props }, ref) => (
+// Main Card component - simplified version
+export const Card = React.forwardRef<HTMLDivElement, CardProps>(({ 
+  className, 
+  children, 
+  ...props 
+}, ref) => {
+  return (
     <div
       ref={ref}
       className={cn(
@@ -20,8 +24,8 @@ export const Card = React.forwardRef<HTMLDivElement, CardProps>(
     >
       {children}
     </div>
-  )
-)
+  );
+})
 Card.displayName = "Card"
 
 // CardHeader component
