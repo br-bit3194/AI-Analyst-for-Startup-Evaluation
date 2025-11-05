@@ -1,8 +1,11 @@
-import React from 'react';
-import { CheckCircle2, AlertCircle, Clock, XCircle, Info, Users, BarChart2 as BarChart, TrendingUp } from 'lucide-react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import React, { JSX } from 'react';
+import { CheckCircle2, AlertCircle, Clock, XCircle, Info, Users, BarChart2 as BarChart, TrendingUp, Activity } from 'lucide-react';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import { Progress } from "@/components/ui/progress"
+import { Separator } from "@/components/ui/separator"
+import { cn } from "@/lib/utils"
+import MarketAnalysis from "./MarketAnalysis"
 import { Badge } from '@/components/ui/badge';
-import { Progress } from '@/components/ui/progress';
 
 // Custom Progress component with proper typing
 const AnalysisProgress = ({ value, className = '' }: { value: number; className?: string }) => (
@@ -46,7 +49,7 @@ interface FinancialValue {
   years?: number;
 }
 
-type FinancialValueType = FinancialValue | number | { months: number } | { monthly: number; annual: number } | null | undefined;
+type FinancialValueType = FinancialValue | number | string | { months: number } | { monthly: number; annual: number } | null | undefined | { value: number | string; [key: string]: any };
 
 interface FinancialMetrics {
   [key: string]: FinancialValueType;
@@ -56,7 +59,7 @@ interface UnitEconomics extends FinancialMetrics {
   customer_acquisition_cost?: FinancialValue;
   lifetime_value?: FinancialValue;
   ltv_cac_ratio?: FinancialValue | number;
-  payback_period?: FinancialValue | { months: number };
+  payback_period?: FinancialValue | { months: number } | number;
   gross_margin?: FinancialValue | number;
   contribution_margin?: FinancialValue | number;
 }
@@ -68,6 +71,7 @@ interface FinancialHealth extends FinancialMetrics {
   cash_balance?: FinancialValue | number;
   gross_margin?: FinancialValue | number;
   ebitda_margin?: FinancialValue | number;
+  analysis?: string | FinancialValue;
 }
 
 interface FundingRound {
@@ -79,11 +83,31 @@ interface FundingRound {
   purpose?: string;
 }
 
+interface SensitivityAnalysis {
+  [scenario: string]: {
+    revenue?: number;
+    profit_margin?: number;
+    cash_balance?: number;
+    [key: string]: unknown;
+  };
+}
+
+interface ProjectionsData {
+  revenue?: FinancialValue[];
+  expenses?: FinancialValue[];
+  assumptions?: string[];
+  assumptions_analysis?: string | { [key: string]: unknown };
+  sensitivity_analysis?: SensitivityAnalysis;
+  red_flags?: string[];
+  [key: string]: unknown;
+}
+
 interface FinanceExpertData {
   unit_economics?: UnitEconomics;
   financial_health?: FinancialHealth;
   funding_rounds?: FundingRound[];
   analysis?: string;
+  projections?: ProjectionsData;
 }
 
 type GrowthProjection = {
@@ -95,67 +119,94 @@ type GrowthProjection = {
   confidence: number;
 };
 
+interface CommitteeAnalysis {
+  members: Array<{ name: string; vote: string; comment?: string }>;
+  summary: string;
+  dissenting_opinions: string[];
+  votes?: Array<{ name: string; vote: string; comment?: string }>;
+}
+
 interface FinalVerdict {
   recommendation?: string;
   confidence?: number;
   confidence_label?: string;
   reasons?: string[];
   timestamp?: string;
-  committee_analysis?: any;
+  committee_analysis?: CommitteeAnalysis;
 }
 
-interface AnalysisResultProps {
-  result: {
-    analysis_id: string;
-    start_time: string;
-    duration_seconds: number;
-    agents: {
-      [key: string]: {
-        success: boolean;
-        data: Record<string, unknown>;
-        error: string | null;
-        confidence: number;
-      };
-    } & {
-      FinanceExpert?: {
-        success: boolean;
-        data: FinanceExpertData;
-        error: string | null;
-        confidence: number;
-      };
-      MarketExpert?: {
-        success: boolean;
-        data: {
-          market_analysis?: {
-            market_size_validation?: {
-              TAM?: string | number;
-              SAM?: string | number;
-              SOM?: string | number;
-              validation_notes?: string;
-            };
-            [key: string]: unknown;
-          };
-          [key: string]: unknown;
-        };
-        error: string | null;
-        confidence: number;
-      };
-    };
-    final_verdict?: FinalVerdict;
-    reasons?: string[];
-    timestamp?: string;
-    committee_analysis?: any;
-  };
+// Define the base agent type
+export interface BaseAgent<T = any> {
+  success: boolean;
+  data: T;
+  error: string | null;
+  confidence: number;
 }
+
+// Define the agents type with specific agent types
+type AgentsType = {
+  [key: string]: BaseAgent;
+} & {
+  FinanceExpert?: BaseAgent<FinanceExpertData>;
+  MarketExpert?: BaseAgent<{
+    market_analysis?: {
+      market_size_validation?: {
+        TAM?: string | number;
+        SAM?: string | number;
+        SOM?: string | number;
+        validation_notes?: string;
+      };
+      [key: string]: unknown;
+    };
+    [key: string]: unknown;
+  }>;
+  RiskAnalyst?: BaseAgent<{
+    risk_analysis?: {
+      overall_risk?: {
+        level?: string;
+        explanation?: string;
+        confidence?: number;
+      };
+      key_risks_summary?: string;
+      risk_factors?: RiskFactor[];
+      recommendations?: string[];
+    };
+    [key: string]: unknown;
+  }>;
+  TeamExpert?: BaseAgent<{
+    team_composition?: string;
+    execution_risk?: string;
+    recommendations?: string[];
+    experience_assessment?: string;
+  }>;
+};
+
+// Define the type for the analysis result
+type AnalysisResultData = {
+  analysis_id: string;
+  start_time: string;
+  duration_seconds: number;
+  agents: AgentsType;
+  final_verdict?: FinalVerdict;
+  reasons?: string[];
+  timestamp?: string;
+  committee_analysis?: any;
+};
+
+// Define the component props using the AnalysisResultData type
+type AnalysisResultProps = {
+  result: AnalysisResultData;
+};
 
 const getRecommendationColor = (recommendation?: string): string => {
-  if (!recommendation) return 'bg-gray-100 text-gray-800';
-  switch (recommendation.toUpperCase()) {
-    case 'STRONG_INVEST':
+  switch (recommendation?.toUpperCase()) {
+    case 'STRONG_BUY':
       return 'bg-green-100 text-green-800';
-    case 'CONSIDER':
+    case 'BUY':
+      return 'bg-blue-100 text-blue-800';
+    case 'HOLD':
       return 'bg-yellow-100 text-yellow-800';
-    case 'RISKY':
+    case 'SELL':
       return 'bg-red-100 text-red-800';
     default:
       return 'bg-gray-100 text-gray-800';
@@ -171,39 +222,9 @@ export const AnalysisResult: React.FC<AnalysisResultProps> = ({ result }) => {
     );
   }
 
-  // Safely extract values with defaults
-  const agents = result.agents as {
-    [key: string]: {
-      success: boolean;
-      data: Record<string, unknown>;
-      error: string | null;
-      confidence: number;
-    };
-    FinanceExpert?: {
-      success: boolean;
-      data: FinanceExpertData;
-      error: string | null;
-      confidence: number;
-    };
-    MarketExpert?: {
-      success: boolean;
-      data: {
-        market_analysis?: {
-          market_size_validation?: {
-            TAM?: string | number;
-            SAM?: string | number;
-            SOM?: string | number;
-            validation_notes?: string;
-          };
-          [key: string]: unknown;
-        };
-        [key: string]: unknown;
-      };
-      error: string | null;
-      confidence: number;
-    };
-  };
-
+  // Initialize agents with proper typing and default empty object
+  const agents = (result?.agents || {}) as AgentsType;
+  
   // Helper function to safely access financial values
   const getFinancialValue = (value: unknown): string => {
     if (value === null || value === undefined) return 'N/A';
@@ -235,50 +256,57 @@ export const AnalysisResult: React.FC<AnalysisResultProps> = ({ result }) => {
     
     return String(value);
   };
-  const final_verdict = result.final_verdict || {
+
+  // Get all available agent data with proper typing
+  const agentData = Object.entries(agents).map(([name, agent]) => {
+    const agentInfo = agent as {
+      success: boolean;
+      data: Record<string, unknown>;
+      error: string | null;
+      confidence: number;
+    };
+    
+    return {
+      name,
+      success: agentInfo?.success || false,
+      data: agentInfo?.data || {},
+      error: agentInfo?.error || null,
+      confidence: agentInfo?.confidence || 0
+    };
+  });
+
+  // Check if we have any agent data
+  const hasAgentData = agentData.some(agent => agent.success && Object.keys(agent.data || {}).length > 0);
+
+  // Create a safe version of final_verdict with all required defaults
+  const finalVerdict = result?.final_verdict || {
     recommendation: 'PENDING',
     confidence: 0,
     confidence_label: 'Low',
     reasons: [],
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
+    committee_analysis: {
+      members: [],
+      summary: 'No committee analysis available',
+      dissenting_opinions: []
+    }
   };
 
-  // Get all available agent data
-  const agentData = Object.entries(agents).map(([name, data]) => ({
-    name,
-    success: data?.success || false,
-    data: data?.data || {},
-    error: data?.error || null,
-    confidence: data?.confidence || 0
-  }));
-
-  // Check if we have any agent data
-  const hasAgentData = agentData.some(agent => agent.success && agent.data);
-
-  // Create a safe version of final_verdict with all required defaults
   const safeVerdict = {
-    recommendation: final_verdict?.recommendation || 'PENDING',
-    confidence: final_verdict?.confidence ?? 0,
-    confidence_label: final_verdict?.confidence_label || 'Low',
-    reasons: Array.isArray(final_verdict?.reasons) ? final_verdict.reasons : ['Analysis in progress'],
-    timestamp: final_verdict?.timestamp || new Date().toISOString(),
-    committee_analysis: final_verdict?.committee_analysis || {
+    recommendation: finalVerdict?.recommendation || 'PENDING',
+    confidence: finalVerdict?.confidence ?? 0,
+    confidence_label: finalVerdict?.confidence_label || 'Low',
+    reasons: Array.isArray(finalVerdict?.reasons) ? finalVerdict.reasons : ['Analysis in progress'],
+    timestamp: finalVerdict?.timestamp || new Date().toISOString(),
+    committee_analysis: finalVerdict?.committee_analysis || {
       members: [],
       summary: 'No committee analysis available',
       dissenting_opinions: []
     }
   } as const;
 
-  // Debug: Log the data we're working with
-  console.log('Analysis Result Data:', {
-    result,
-    final_verdict,
-    safeVerdict,
-    agents: Object.keys(agents)
-  });
-  
   // Safely access committee_analysis with robust defaults
-  const committeeAnalysis = safeVerdict?.committee_analysis || {};
+  const committeeAnalysis = safeVerdict.committee_analysis;
   const committeeVotes = committeeAnalysis && Array.isArray(committeeAnalysis.votes) 
     ? committeeAnalysis.votes 
     : [];
@@ -744,9 +772,9 @@ export const AnalysisResult: React.FC<AnalysisResultProps> = ({ result }) => {
               <div className="mt-2">
                 <div className="flex justify-between text-xs text-gray-500 mb-1">
                   <span>Confidence</span>
-                  <span>{Math.round(marketSize.confidence * 100)}%</span>
+                  <span>{Math.round((marketSize.confidence ?? 0) * 100)}%</span>
                 </div>
-                <Progress value={marketSize.confidence * 100} className="h-2" />
+                <Progress value={(marketSize.confidence ?? 0) * 100} className="h-2" />
               </div>
               {marketSize.notes && (
                 <p className="mt-2 text-xs text-gray-500 italic">{marketSize.notes}</p>
@@ -811,51 +839,67 @@ export const AnalysisResult: React.FC<AnalysisResultProps> = ({ result }) => {
     );
   };
 
+  // Ensure safeVerdict has a default recommendation with proper typing
+  const finalSafeVerdict: FinalVerdict = result.final_verdict || { 
+    recommendation: 'PENDING', 
+    confidence: 0 
+  };
+
+  // Safely render the header section
+  const renderHeader = () => (
+    <CardHeader className="bg-gray-50 border-b">
+      <div className="flex items-center justify-between">
+        <div>
+          <CardTitle className="text-2xl font-bold text-gray-900">Analysis Result</CardTitle>
+          <CardDescription className="text-gray-600">
+            Analysis ID: {result.analysis_id || 'N/A'}
+          </CardDescription>
+        </div>
+        {finalSafeVerdict?.recommendation && (
+          <Badge 
+            className={`${getRecommendationColor(finalSafeVerdict.recommendation)} text-sm font-medium px-3 py-1`}
+          >
+            {String(finalSafeVerdict.recommendation).replace(/_/g, ' ')}
+          </Badge>
+        )}
+      </div>
+    </CardHeader>
+  );
+
+  // Render the main card content
+  const renderCardContent = () => (
+    <CardContent className="p-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="p-3 bg-green-50 rounded-lg">
+          <p className="text-sm text-green-700">Confidence</p>
+          <div className="flex items-center">
+            <p className="text-lg font-semibold mr-2">
+              {Math.round((finalSafeVerdict?.confidence || 0) * 100)}%
+            </p>
+            <div className="w-full bg-gray-200 rounded-full h-2">
+              <div 
+                className="bg-blue-500 h-2 rounded-full" 
+                style={{ width: `${Math.min(100, Math.max(0, finalSafeVerdict?.confidence || 0) * 100)}%` }}
+              />
+            </div>
+          </div>
+        </div>
+        <div className="p-3 bg-purple-50 rounded-lg">
+          <p className="text-sm text-purple-700">Agents Executed</p>
+          <p className="text-lg font-semibold">
+            {result.agents ? Object.keys(result.agents).length : 0} completed
+          </p>
+        </div>
+      </div>
+    </CardContent>
+  );
+
+  // Main component render
   return (
-    <div className="space-y-6 text-gray-800">
-      {/* Header with overall recommendation */}
+    <div className="space-y-6">
       <Card className="bg-white shadow-sm">
-        <CardHeader className="bg-gray-50 border-b">
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle className="text-2xl font-bold text-gray-900">Analysis Result</CardTitle>
-              <CardDescription className="text-gray-600">Analysis ID: {result.analysis_id}</CardDescription>
-            </div>
-            <Badge 
-              className={`${getRecommendationColor(safeVerdict.recommendation)} text-sm font-medium px-3 py-1`}
-            >
-              {safeVerdict.recommendation.replace(/_/g, ' ')}
-            </Badge>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="p-3 bg-blue-50 rounded-lg">
-              <p className="text-sm text-blue-700">Analysis Duration</p>
-              <p className="text-lg font-semibold">{Math.round(result.duration_seconds)} seconds</p>
-            </div>
-            <div className="p-3 bg-green-50 rounded-lg">
-              <p className="text-sm text-green-700">Confidence</p>
-              <div className="flex items-center">
-                <p className="text-lg font-semibold mr-2">
-                  {Math.round(safeVerdict.confidence * 100)}%
-                </p>
-                <div className="w-full bg-gray-200 rounded-full h-2">
-                  <div 
-                    className="bg-blue-500 h-2 rounded-full" 
-                    style={{ width: `${Math.min(100, Math.max(0, safeVerdict.confidence || 0) * 100)}%` }}
-                  />
-                </div>
-              </div>
-            </div>
-            <div className="p-3 bg-purple-50 rounded-lg">
-              <p className="text-sm text-purple-700">Agents Executed</p>
-              <p className="text-lg font-semibold">
-                {Object.keys(agents).length} / {Object.keys(agents).length} completed
-              </p>
-            </div>
-          </div>
-        </CardContent>
+        {renderHeader()}
+        {renderCardContent()}
       </Card>
 
 
@@ -868,23 +912,31 @@ export const AnalysisResult: React.FC<AnalysisResultProps> = ({ result }) => {
               Risk Analysis
             </CardTitle>
             <CardDescription>
-              {agents.RiskAnalyst.data.risk_analysis.overall_risk.explanation}
+              {agents.RiskAnalyst?.data?.risk_analysis?.overall_risk?.explanation || 'No risk analysis available'}
             </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-6">
               <div className="p-4 bg-red-50 border border-red-100 rounded-lg">
-                <h4 className="font-medium text-red-800">Overall Risk: {agents.RiskAnalyst.data.risk_analysis.overall_risk.level}</h4>
+                <h4 className="font-medium text-red-800">
+                  Overall Risk: {agents.RiskAnalyst?.data?.risk_analysis?.overall_risk?.level || 'Not available'}
+                </h4>
                 <p className="mt-1 text-red-700">
-                  {agents.RiskAnalyst.data.risk_analysis.key_risks_summary}
+                  {agents.RiskAnalyst?.data?.risk_analysis?.key_risks_summary || 'No risk summary available'}
                 </p>
                 <div className="mt-2">
                   <div className="flex justify-between text-xs text-red-600 mb-1">
                     <span>Confidence</span>
-                    <span>{Math.round(agents.RiskAnalyst.data.risk_analysis.overall_risk.confidence * 100)}%</span>
+                    <span>{
+                      agents.RiskAnalyst?.data?.risk_analysis?.overall_risk?.confidence !== undefined
+                        ? `${Math.round(agents.RiskAnalyst.data.risk_analysis.overall_risk.confidence * 100)}%`
+                        : 'N/A'
+                    }</span>
                   </div>
                   <Progress 
-                    value={agents.RiskAnalyst.data.risk_analysis.overall_risk.confidence * 100} 
+                    value={agents.RiskAnalyst?.data?.risk_analysis?.overall_risk?.confidence !== undefined 
+                      ? agents.RiskAnalyst.data.risk_analysis.overall_risk.confidence * 100 
+                      : 0} 
                     className="h-2 bg-red-100"
                     indicatorClassName="bg-red-500"
                   />
@@ -917,110 +969,7 @@ export const AnalysisResult: React.FC<AnalysisResultProps> = ({ result }) => {
       )}
 
       {/* Market Analysis */}
-      {agents.MarketExpert?.data?.market_analysis && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center">
-              <BarChart className="h-5 w-5 mr-2 text-blue-600" />
-              Market Analysis
-            </CardTitle>
-            <CardDescription>
-              {agents.MarketExpert.data.market_analysis.summary}
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            {/* Market Size */}
-            {agents.MarketExpert.data.market_analysis.market_size_validation && (
-              <div>
-                <h4 className="font-medium text-gray-900 mb-3">Market Size Validation</h4>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="bg-white p-4 rounded-lg border border-blue-100 shadow">
-                    <h5 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-1">TAM</h5>
-                    <p className="text-xl font-semibold text-blue-700">
-                      {agents.MarketExpert?.data?.market_analysis?.market_size_validation?.TAM !== undefined 
-                        ? String(agents.MarketExpert.data.market_analysis.market_size_validation.TAM) 
-                        : 'N/A'}
-                    </p>
-                  </div>
-                  <div className="bg-white p-4 rounded-lg border border-blue-100 shadow">
-                    <h5 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-1">SAM</h5>
-                    <p className="text-xl font-semibold text-blue-700">
-                      {agents.MarketExpert?.data?.market_analysis?.market_size_validation?.SAM !== undefined 
-                        ? String(agents.MarketExpert.data.market_analysis.market_size_validation.SAM) 
-                        : 'N/A'}
-                    </p>
-                  </div>
-                  <div className="bg-white p-4 rounded-lg border border-blue-100 shadow">
-                    <h5 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-1">SOM</h5>
-                    <p className="text-xl font-semibold text-blue-700">
-                      {agents.MarketExpert?.data?.market_analysis?.market_size_validation?.SOM !== undefined 
-                        ? String(agents.MarketExpert.data.market_analysis.market_size_validation.SOM) 
-                        : 'N/A'}
-                    </p>
-                  </div>
-                </div>
-                {agents.MarketExpert?.data?.market_analysis?.market_size_validation?.validation_notes && (
-                  <p className="mt-3 text-sm text-gray-600">
-                    {agents.MarketExpert.data.market_analysis.market_size_validation.validation_notes}
-                  </p>
-                )}
-              </div>
-            )}
-
-            {/* Growth Projections */}
-            {agents.MarketExpert.data.market_analysis.growth_projections && (
-              <div>
-                <h4 className="font-medium text-gray-900 mb-3">Growth Projections</h4>
-                {renderGrowthProjections(agents.MarketExpert.data.market_analysis.growth_projections)}
-              </div>
-            )}
-
-            {/* Competitive Positioning */}
-            {agents.MarketExpert.data.market_analysis.competitive_positioning && (
-              <div>
-                <h4 className="font-medium text-gray-900 mb-3">Competitive Landscape</h4>
-                <div className="space-y-4">
-                  <div className="p-4 bg-blue-50 rounded-lg">
-                    <h5 className="font-medium text-blue-800">Positioning</h5>
-                    <p className="mt-1 text-blue-700">
-                      {agents.MarketExpert.data.market_analysis.competitive_positioning.positioning}
-                    </p>
-                  </div>
-                  
-                  <div>
-                    <h5 className="font-medium text-gray-900 mb-2">Key Competitors</h5>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                      {agents.MarketExpert.data.market_analysis.competitive_positioning.key_competitors.map(
-                        (competitor: any, i: number) => (
-                          <div key={i} className="border rounded-lg p-4 hover:shadow-md transition-shadow">
-                            <h6 className="font-medium text-gray-900">{competitor.name}</h6>
-                            <div className="mt-2">
-                              <p className="text-sm font-medium text-gray-500">Strengths</p>
-                              <ul className="list-disc pl-5 mt-1 text-sm text-gray-700 space-y-1">
-                                {competitor.strengths.slice(0, 2).map((s: string, j: number) => (
-                                  <li key={j} className="line-clamp-2">{s}</li>
-                                ))}
-                              </ul>
-                            </div>
-                            <div className="mt-2">
-                              <p className="text-sm font-medium text-gray-500">Weaknesses</p>
-                              <ul className="list-disc pl-5 mt-1 text-sm text-gray-700 space-y-1">
-                                {competitor.weaknesses.slice(0, 2).map((w: string, j: number) => (
-                                  <li key={j} className="line-clamp-2">{w}</li>
-                                ))}
-                              </ul>
-                            </div>
-                          </div>
-                        )
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      )}
+      <MarketAnalysis marketExpert={agents.MarketExpert} />
 
       {/* Financial Analysis */}
       {agents.FinanceExpert?.data && (
@@ -1033,7 +982,7 @@ export const AnalysisResult: React.FC<AnalysisResultProps> = ({ result }) => {
           </CardHeader>
           <CardContent className="space-y-6 p-6">
             {/* Business Model Overview */}
-            {agents.FinanceExpert.data[' '] && (
+            {agents.FinanceExpert.data.analysis && (
               <div className="space-y-4 p-4 bg-white rounded-lg border border-gray-100 shadow-sm">
                 <div className="flex items-center">
                   <div className="p-2 bg-blue-100 rounded-full mr-3">
@@ -1042,37 +991,69 @@ export const AnalysisResult: React.FC<AnalysisResultProps> = ({ result }) => {
                   <h3 className="text-lg font-semibold text-gray-900">Business Model Overview</h3>
                 </div>
                 <div className="ml-10">
-                  <p className="text-gray-700">{agents.FinanceExpert.data[' '].model}</p>
-                  
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-                    <div className="bg-green-50 p-4 rounded-lg border border-green-100">
-                      <h5 className="font-medium text-green-800 flex items-center">
-                        <CheckCircle2 className="h-4 w-4 mr-2 text-green-500" />
-                        Strengths
-                      </h5>
-                      <ul className="mt-2 space-y-2">
-                        {agents.FinanceExpert.data[' '].strengths.map((s: string, i: number) => (
-                          <li key={i} className="flex items-start">
-                            <span className="text-green-500 mr-2">•</span>
-                            <span className="text-sm text-gray-700">{s}</span>
-                          </li>
-                        ))}
-                      </ul>
+                  <p className="text-gray-700">{agents.FinanceExpert.data.analysis}</p>
+                </div>
+              </div>
+            )}
+            
+            {/* Unit Economics */}
+            {agents.FinanceExpert.data.unit_economics && (
+              <div className="bg-white p-5 rounded-lg border border-gray-100 shadow-sm mt-4">
+                <div className="flex items-center mb-4">
+                  <div className="p-2 bg-indigo-100 rounded-full mr-3">
+                    <BarChart className="h-5 w-5 text-indigo-600" />
+                  </div>
+                  <h3 className="text-lg font-semibold text-gray-900">Unit Economics</h3>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="bg-green-50 p-4 rounded-lg border border-green-100">
+                    <h5 className="font-medium text-green-800 flex items-center">
+                      <CheckCircle2 className="h-4 w-4 mr-2 text-green-500" />
+                      Key Metrics
+                    </h5>
+                    <div className="mt-2 space-y-2">
+                      <p className="text-sm text-gray-700">
+                        <span className="font-medium">CAC:</span> {agents.FinanceExpert.data.unit_economics.customer_acquisition_cost?.value || 'N/A'}
+                      </p>
+                      <p className="text-sm text-gray-700">
+                        <span className="font-medium">LTV:</span> {agents.FinanceExpert.data.unit_economics.lifetime_value?.value || 'N/A'}
+                      </p>
+                      <p className="text-sm text-gray-700">
+                        <span className="font-medium">LTV/CAC:</span> {agents.FinanceExpert.data.unit_economics.ltv_cac_ratio ? getFinancialValue(agents.FinanceExpert.data.unit_economics.ltv_cac_ratio) : 'N/A'}
+                      </p>
                     </div>
-                    
-                    <div className="bg-red-50 p-4 rounded-lg border border-red-100">
-                      <h5 className="font-medium text-red-800 flex items-center">
-                        <AlertCircle className="h-4 w-4 mr-2 text-red-500" />
-                        Concerns
-                      </h5>
-                      <ul className="mt-2 space-y-2">
-                        {agents.FinanceExpert.data[' '].concerns.map((c: string, i: number) => (
-                          <li key={i} className="flex items-start">
-                            <span className="text-red-500 mr-2">•</span>
-                            <span className="text-sm text-gray-700">{c}</span>
-                          </li>
-                        ))}
-                      </ul>
+                  </div>
+                </div>
+              </div>
+            )}
+            
+            {/* Financial Health */}
+            {agents.FinanceExpert.data.financial_health && (
+              <div className="bg-white p-5 rounded-lg border border-gray-100 shadow-sm mt-4">
+                <div className="flex items-center mb-4">
+                  <div className="p-2 bg-teal-100 rounded-full mr-3">
+                    <TrendingUp className="h-5 w-5 text-teal-600" />
+                  </div>
+                  <h3 className="text-lg font-semibold text-gray-900">Financial Health</h3>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="bg-blue-50 p-4 rounded-lg border border-blue-100">
+                    <h5 className="font-medium text-blue-800 flex items-center">
+                      <Activity className="h-4 w-4 mr-2 text-blue-500" />
+                      Health Metrics
+                    </h5>
+                    <div className="mt-2 space-y-2">
+                      <p className="text-sm text-gray-700">
+                        <span className="font-medium">Burn Rate:</span> {agents.FinanceExpert.data.financial_health?.burn_rate?.monthly || 'N/A'}/month
+                      </p>
+                      <p className="text-sm text-gray-700">
+                        <span className="font-medium">Runway:</span> {agents.FinanceExpert.data.financial_health?.runway_months ? 
+                          `${getFinancialValue(agents.FinanceExpert.data.financial_health.runway_months)} months` : 'N/A'}
+                      </p>
+                      <p className="text-sm text-gray-700">
+                        <span className="font-medium">Growth Rate:</span> {agents.FinanceExpert.data.financial_health?.revenue_growth_rate ? 
+                          `${getFinancialValue(agents.FinanceExpert.data.financial_health.revenue_growth_rate)}%` : 'N/A'}
+                      </p>
                     </div>
                   </div>
                 </div>
@@ -1081,7 +1062,7 @@ export const AnalysisResult: React.FC<AnalysisResultProps> = ({ result }) => {
             
             {/* Unit Economics */}
             {agents.FinanceExpert.data.unit_economics && (
-              <div className="bg-white p-5 rounded-lg border border-gray-100 shadow-sm">
+              <div className="bg-white p-5 rounded-lg border border-gray-100 shadow-sm mt-4">
                 <div className="flex items-center mb-4">
                   <div className="p-2 bg-indigo-100 rounded-full mr-3">
                     <BarChart className="h-5 w-5 text-indigo-600" />
@@ -1089,7 +1070,7 @@ export const AnalysisResult: React.FC<AnalysisResultProps> = ({ result }) => {
                   <h3 className="text-lg font-semibold text-gray-900">Unit Economics</h3>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  {Object.entries(agents.FinanceExpert.data.unit_economics || {}).map(([key, value]) => {
+                  {Object.entries(agents.FinanceExpert.data.unit_economics).map(([key, value]) => {
                     if (value === null || value === undefined || key === 'analysis') return null;
                     
                     let displayValue, benchmark, isPositive;
@@ -1141,7 +1122,7 @@ export const AnalysisResult: React.FC<AnalysisResultProps> = ({ result }) => {
                           isPositive === false ? 'text-red-700' : 
                           'text-gray-900'
                         }`}>
-                          {displayValue}
+                          {typeof displayValue === 'object' ? JSON.stringify(displayValue) : displayValue}
                         </p>
                         {benchmark && (
                           <p className="text-xs text-gray-500 mt-1">{benchmark}</p>
@@ -1237,7 +1218,7 @@ export const AnalysisResult: React.FC<AnalysisResultProps> = ({ result }) => {
                           isPositive === false ? 'text-red-700' : 
                           'text-gray-900'
                         }`}>
-                          {displayValue}
+                          {typeof displayValue === 'object' ? JSON.stringify(displayValue) : displayValue}
                         </p>
                         {subValue && (
                           <p className="text-xs text-gray-500 mt-1">{subValue}</p>
@@ -1246,10 +1227,12 @@ export const AnalysisResult: React.FC<AnalysisResultProps> = ({ result }) => {
                     );
                   })}
                 </div>
-                {agents.FinanceExpert.data.financial_health.analysis && (
+                {agents.FinanceExpert?.data?.financial_health?.analysis && (
                   <div className="mt-4 p-3 bg-blue-50 rounded-md border border-blue-100">
                     <p className="text-sm text-blue-700">
-                      {agents.FinanceExpert.data.financial_health.analysis}
+                      {typeof agents.FinanceExpert.data.financial_health.analysis === 'string' 
+                        ? agents.FinanceExpert.data.financial_health.analysis 
+                        : agents.FinanceExpert.data.financial_health.analysis.value}
                     </p>
                   </div>
                 )}
@@ -1257,7 +1240,7 @@ export const AnalysisResult: React.FC<AnalysisResultProps> = ({ result }) => {
             )}
             
             {/* Funding Rounds */}
-            {agents.FinanceExpert.data.funding_rounds && agents.FinanceExpert.data.funding_rounds.length > 0 && (
+            {agents.FinanceExpert?.data?.funding_rounds && agents.FinanceExpert.data.funding_rounds.length > 0 && (
               <div className="bg-white p-5 rounded-lg border border-gray-100 shadow-sm">
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center">
@@ -1314,7 +1297,7 @@ export const AnalysisResult: React.FC<AnalysisResultProps> = ({ result }) => {
                               )}
                             </div>
                           </div>
-                          {index === 0 && agents.FinanceExpert.data.funding_rounds.length > 1 && (
+                          {index === 0 && agents.FinanceExpert?.data?.funding_rounds && agents.FinanceExpert.data.funding_rounds.length > 1 && (
                             <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
                               Most Recent
                             </span>
@@ -1413,7 +1396,7 @@ export const AnalysisResult: React.FC<AnalysisResultProps> = ({ result }) => {
                         : (agents.FinanceExpert.data.financial_health.runway_months as FinancialValue)?.value as number > 12)) ? 
                         'Substantial cash runway of over 12 months, providing stability for growth.' :
                         'Adequate cash runway for current operations.',
-                      agents.FinanceExpert.data.funding_rounds?.length > 0 ?
+                      (agents.FinanceExpert?.data?.funding_rounds?.length || 0) > 0 ?
                         'Successful fundraising history with multiple investors.' :
                         'Early-stage company with initial funding secured.'
                     ].map((item, i) => (
@@ -1495,7 +1478,10 @@ export const AnalysisResult: React.FC<AnalysisResultProps> = ({ result }) => {
                     <div>
                       <h5 className="text-sm font-medium text-gray-700 mb-1">Key Assumptions</h5>
                       <p className="text-sm text-gray-600">
-                        {agents.FinanceExpert.data.projections.assumptions_analysis}
+                        {typeof agents.FinanceExpert.data.projections.assumptions_analysis === 'string' 
+                          ? agents.FinanceExpert.data.projections.assumptions_analysis
+                          : JSON.stringify(agents.FinanceExpert.data.projections.assumptions_analysis, null, 2)
+                        }
                       </p>
                     </div>
                   )}
@@ -2009,10 +1995,10 @@ export const AnalysisResult: React.FC<AnalysisResultProps> = ({ result }) => {
         </CardHeader>
         <CardContent>
           <div className="space-y-6">
-            {final_verdict?.committee_analysis ? (
+            {safeVerdict?.committee_analysis ? (
               <>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {final_verdict.committee_analysis.members?.map((member: any) => (
+                  {safeVerdict.committee_analysis.members?.map((member: any) => (
                     <div 
                       key={member.name} 
                       className="border rounded-lg p-4 hover:shadow-md transition-shadow"
@@ -2043,14 +2029,14 @@ export const AnalysisResult: React.FC<AnalysisResultProps> = ({ result }) => {
                     </div>
                   ))}
                 </div>
-                {final_verdict.committee_analysis.dissenting_opinions?.length > 0 && (
+                {safeVerdict.committee_analysis.dissenting_opinions?.length > 0 && (
                 <div className="border-l-4 border-yellow-400 bg-yellow-50 p-4 rounded-r">
                   <h4 className="font-medium text-yellow-800 flex items-center">
                     <AlertCircle className="h-4 w-4 mr-1" />
                     Dissenting Opinions
                   </h4>
                   <ul className="mt-2 space-y-2 text-sm text-yellow-700">
-                    {final_verdict.committee_analysis.dissenting_opinions.map((opinion: string, i: number) => (
+                    {safeVerdict.committee_analysis.dissenting_opinions.map((opinion: string, i: number) => (
                       <li key={i} className="flex items-start">
                         <span className="mr-2">•</span>
                         <span>{opinion}</span>

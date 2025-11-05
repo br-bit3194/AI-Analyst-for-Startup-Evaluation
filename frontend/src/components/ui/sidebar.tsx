@@ -70,20 +70,41 @@ export const Sidebar = ({
   );
 };
 
-export const SidebarBody = (props: React.ComponentProps<typeof motion.div>) => {
+interface SidebarBodyProps {
+  children?: React.ReactNode;
+  className?: string;
+  style?: React.CSSProperties;
+}
+
+export const SidebarBody = (props: { children?: React.ReactNode; className?: string; style?: React.CSSProperties }) => {
+  const { children, className, style } = props;
   return (
     <>
-      <DesktopSidebar {...props} />
-      <MobileSidebar {...(props as React.ComponentProps<"div">)} />
+      <div className="hidden md:block">
+        <DesktopSidebar className={className} style={style}>
+          {children}
+        </DesktopSidebar>
+      </div>
+      <div className="md:hidden">
+        <MobileSidebar className={className} style={style}>
+          {children}
+        </MobileSidebar>
+      </div>
     </>
   );
 };
+
+interface DesktopSidebarProps {
+  children: React.ReactNode;
+  className?: string;
+  style?: React.CSSProperties;
+}
 
 const DesktopSidebar = ({
   className,
   children,
   ...props
-}: React.ComponentProps<typeof motion.div>) => {
+}: DesktopSidebarProps) => {
   const { open, setOpen, animate } = useSidebar();
   const [isClient, setIsClient] = React.useState(false);
 
@@ -108,32 +129,39 @@ const DesktopSidebar = ({
         "h-full px-4 py-4 hidden md:flex md:flex-col bg-white border-r border-gray-200 w-[280px] flex-shrink-0",
         className
       )}
+      style={props.style}
       animate={{
         width: animate ? (open ? "280px" : "80px") : "280px",
       }}
       onMouseEnter={() => setOpen(true)}
       onMouseLeave={() => setOpen(false)}
       initial={false}
-      {...props}
     >
       {children}
     </motion.div>
   );
 };
 
+interface MobileSidebarProps {
+  children?: React.ReactNode;
+  className?: string;
+  style?: React.CSSProperties;
+}
+
 const MobileSidebar = ({
   className,
   children,
-  ...props
-}: React.ComponentProps<"div">) => {
+  style
+}: MobileSidebarProps) => {
   const { open, setOpen } = useSidebar();
   const { signOut } = useAuth();
   return (
     <div
       className={cn(
-        "h-16 px-4 py-4 flex md:hidden items-center justify-between bg-white border-b border-gray-200 w-full"
-      )} style={{ backgroundColor: '#ffffff' }}
-      {...props}
+        "h-16 px-4 py-4 flex md:hidden items-center justify-between bg-white border-b border-gray-200 w-full",
+        className
+      )}
+      style={{ ...style, backgroundColor: '#ffffff' }}
     >
       <div className="flex items-center">
         <div className="h-8 w-8 bg-primary rounded-md flex items-center justify-center">
