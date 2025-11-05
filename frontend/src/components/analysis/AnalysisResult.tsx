@@ -1,6 +1,17 @@
 import React from 'react';
 import { CheckCircle2, AlertCircle, Clock, XCircle, Info, Users, BarChart2 as BarChart, TrendingUp } from 'lucide-react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { 
+  Card, 
+  CardContent, 
+  CardDescription, 
+  CardHeader, 
+  CardTitle,
+  type CardProps,
+  type CardContentProps,
+  type CardDescriptionProps,
+  type CardHeaderProps,
+  type CardTitleProps
+} from '@/components/ui/card';
 import type { HTMLAttributes } from 'react';
 import type { ReactNode } from 'react';
 import { Badge } from '@/components/ui/badge';
