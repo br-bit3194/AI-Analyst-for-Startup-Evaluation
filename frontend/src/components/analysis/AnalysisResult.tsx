@@ -6,8 +6,6 @@ import {
   CardDescription, 
   CardHeader, 
   CardTitle,
-  type CardProps,
-  type CardContentProps,
   type CardDescriptionProps,
   type CardHeaderProps,
   type CardTitleProps
