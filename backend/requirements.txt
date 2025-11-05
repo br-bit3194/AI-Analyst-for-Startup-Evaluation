@@ -54,3 +54,4 @@ passlib[bcrypt]==1.7.4
 tqdm==4.66.1
 python-slugify==8.0.1
 colorama==0.4.6
+PyPDF2
