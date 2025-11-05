@@ -1,6 +1,7 @@
 import React from 'react';
 import { CheckCircle2, AlertCircle, Clock, XCircle, Info, Users, BarChart2 as BarChart, TrendingUp } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import type { HTMLAttributes } from 'react';
 import type { ReactNode } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
@@ -819,7 +820,6 @@ export const AnalysisResult: React.FC<AnalysisResultProps> = ({ result }) => {
   return (
     <div className="space-y-6 text-gray-800">
       {/* Header with overall recommendation */}
-      {/* @ts-ignore */}
       <Card className="bg-white shadow-sm">
         <CardHeader className="bg-gray-50 border-b">
           <div className="flex items-center justify-between">
