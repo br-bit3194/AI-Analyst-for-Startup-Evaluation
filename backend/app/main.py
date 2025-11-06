@@ -127,7 +127,10 @@ app.include_router(api_router)
 # Add CORS (optional, helps with frontend testing)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # allow all for testing
+    allow_origins=[
+        "https://ai-analyst-for-startup-evaluation.vercel.app",
+        "http://localhost:3000"
+    ],  # allow all for testing
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
