@@ -43,7 +43,7 @@ openpyxl>=3.1.0,<4.0.0
 xlsxwriter>=3.1.0,<4.0.0
 
 # Vector Storage & Embeddings
-# faiss-cpu>=1.8.0,<2.0.0
+faiss-cpu>=1.8.0,<2.0.0
 # sentence-transformers>=2.2.0,<3.0.0
 
 # Authentication & Security
@@ -54,3 +54,4 @@ passlib[bcrypt]==1.7.4
 tqdm==4.66.1
 python-slugify==8.0.1
 colorama==0.4.6
+PyPDF2
