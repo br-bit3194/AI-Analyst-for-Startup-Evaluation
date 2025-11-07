@@ -208,7 +208,9 @@ Ecobox by Binbag is uniquely positioned at the intersection of rising regulatory
   // Function to poll for analysis status
   const pollAnalysisStatus = async (id: string) => {
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/analysis/${id}`, {
+      const prefixUrl = process.env.NEXT_PUBLIC_API_URL;
+      const response = await fetch(`${prefixUrl}/analysis/status/${id}`, {
+        method: 'GET',
         headers: {
           'Content-Type': 'application/json',
         },
@@ -244,7 +246,10 @@ Ecobox by Binbag is uniquely positioned at the intersection of rising regulatory
       setAnalysisResult(processedData);
       
       // Check the status to determine if we should continue polling
-      const status = responseData.status || (resultData ? 'completed' : 'processing');
+      const status = responseData.status?.toLowerCase() || 
+                   (resultData?.status ? resultData.status.toLowerCase() : 'processing');
+      
+      console.log('Analysis status:', status, { responseStatus: responseData.status, resultStatus: resultData?.status });
       
       if (status === 'completed' || status === 'succeeded') {
         setAnalysisStatus('completed');
@@ -255,7 +260,7 @@ Ecobox by Binbag is uniquely positioned at the intersection of rising regulatory
         setIsSubmitting(false);
       } else {
         // Continue polling every 2 seconds if still processing
-        setTimeout(() => pollAnalysisStatus(id), 2000);
+        setTimeout(() => pollAnalysisStatus(id), 10000);
       }
     } catch (err) {
       console.error('Error fetching analysis status:', err);

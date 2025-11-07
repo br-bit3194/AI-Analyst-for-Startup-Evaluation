@@ -30,26 +30,75 @@ router_logger = AgentLogger("analysis_router")
 analysis_results = {}
 analysis_callbacks = {}
 
-def store_analysis_result(analysis_id: str, status: str, result: Any = None, message: str = None):
+from app.services.mongodb_service import MongoDBService
+
+# Initialize MongoDB service for analysis results
+mongodb_service = MongoDBService("analysis_results")
+
+async def store_analysis_result(analysis_id: str, status: str, result: Any = None, message: str = None, user_id: str = "system"):
     """Helper function to safely store analysis results"""
-    try:
-        # Ensure the result is JSON serializable
-        if result is not None:
+    print(f"[DEBUG] Storing analysis result for ID: {analysis_id}, status: {status}")
+    
+    # Ensure the result is JSON serializable
+    result_dict = {}
+    if result is not None:
+        try:
             json.dumps(result)  # Test serialization
-        analysis_results[analysis_id] = {
-            "status": status,
-            "result": result,
-            "message": message,
-            "timestamp": datetime.utcnow().isoformat()
-        }
-    except (TypeError, OverflowError) as e:
-        # If serialization fails, store a string representation
-        analysis_results[analysis_id] = {
-            "status": "error",
-            "result": None,
-            "message": f"Error in analysis result serialization: {str(e)}",
-            "timestamp": datetime.utcnow().isoformat()
-        }
+            result_dict["result"] = result
+        except (TypeError, OverflowError) as e:
+            print(f"[WARNING] Result not JSON serializable, converting to string: {str(e)}")
+            result_dict["result"] = str(result)
+    
+    # Prepare the document with proper structure
+    document = {
+        "analysis_id": analysis_id,
+        "user_id": user_id,
+        "status": status,
+        "message": message or "",
+        "created_at": datetime.utcnow(),
+        "updated_at": datetime.utcnow(),
+        "timestamp": datetime.utcnow().isoformat()
+    }
+    
+    # Add the result data if available
+    if result_dict:
+        document["result"] = result_dict.get("result", {})
+    
+    print(f"[DEBUG] Prepared document for MongoDB: {json.dumps(document, default=str)}")
+    
+    max_retries = 3
+    retry_delay = 1  # seconds
+    
+    for attempt in range(max_retries):
+        try:
+            print(f"[DEBUG] Attempt {attempt + 1} to save to MongoDB...")
+            # Save to MongoDB
+            success = await mongodb_service.save_analysis_results(
+                analysis_id=analysis_id,
+                result_data=document,
+                user_id=user_id,
+                status=status
+            )
+            
+            if success:
+                print(f"[DEBUG] Successfully saved analysis result for ID: {analysis_id}")
+                return True
+            else:
+                print(f"[WARNING] Failed to save analysis result (attempt {attempt + 1}/{max_retries})")
+                
+        except Exception as e:
+            error_msg = f"Error saving analysis result (attempt {attempt + 1}/{max_retries}): {str(e)}"
+            print(f"[ERROR] {error_msg}")
+            router_logger.error(error_msg, 
+                             extra={"analysis_id": analysis_id, "error": str(e), "attempt": attempt + 1})
+            
+        if attempt < max_retries - 1:
+            print(f"[DEBUG] Retrying in {retry_delay} seconds...")
+            await asyncio.sleep(retry_delay)
+            retry_delay *= 2  # Exponential backoff
+    
+    print(f"[ERROR] Failed to save analysis result after {max_retries} attempts")
+    return False
 
 # Models
 class AnalysisRequest(BaseModel):
@@ -84,7 +133,7 @@ async def extract_text_from_pdf(file: UploadFile) -> str:
         text = ""
         for page in pdf_reader.pages:
             text += page.extract_text() + "\n"
-        return text.strip()
+        return f"\n{text.strip()}"
     except Exception as e:
         raise HTTPException(
             status_code=400,
@@ -128,96 +177,21 @@ async def start_analysis(
     """
     content_type = request.headers.get('content-type', '')
     
-    # Handle JSON payload
-    if 'application/json' in content_type:
-        try:
-            data = await request.json()
-            return await process_analysis_request(
-                pitch=data.get('pitch', ''),
-                background_tasks=background_tasks,
-                callback_url=data.get('callback_url'),
-                file=data.get('file')
-            )
-        except json.JSONDecodeError:
-            raise HTTPException(status_code=400, detail="Invalid JSON payload")
-    
-    # Handle file upload (multipart/form-data)
-    elif 'multipart/form-data' in content_type:
-        form_data = await request.form()
-        file = form_data.get('file')
-        
-        if not file or not hasattr(file, 'filename'):
-            raise HTTPException(status_code=400, detail="No file provided")
-            
-        if not file.filename.lower().endswith('.pdf'):
-            raise HTTPException(status_code=400, detail="Only PDF files are supported")
-            
-        # Extract text from PDF
-        try:
-            pitch_text = await extract_text_from_pdf(file)
-            if not pitch_text.strip():
-                raise HTTPException(
-                    status_code=400,
-                    detail="The uploaded PDF appears to be empty or could not be read"
-                )
-                
-            return await process_analysis_request(
-                pitch=pitch_text,
-                background_tasks=background_tasks,
-                callback_url=form_data.get('callback_url'),
-                file=file  # Pass the file object directly
-            )
-                
-        except HTTPException:
-            raise
-        except Exception as e:
-            raise HTTPException(
-                status_code=500,
-                detail=f"An error occurred while processing the file: {str(e)}"
-            )
-    
-    # Unsupported content type
-    raise HTTPException(
-        status_code=415,
-        detail="Unsupported media type. Use 'application/json' or 'multipart/form-data'"
-    )
-    """
-    Start a new analysis of a startup pitch from a PDF file.
-    Returns immediately with an analysis ID that can be used to check the status.
-    
-    The PDF should contain the startup pitch or business plan to be analyzed.
-    """
-    # Check if the uploaded file is a PDF
-    if not file.filename.lower().endswith('.pdf'):
-        raise HTTPException(
-            status_code=400,
-            detail="Only PDF files are supported"
-        )
-    
-    # Extract text from PDF
     try:
-        pitch_text = await extract_text_from_pdf(file)
-        if not pitch_text.strip():
-            raise HTTPException(
-                status_code=400,
-                detail="The uploaded PDF appears to be empty or could not be read"
-            )
-            
-        # Create an AnalysisRequest with the extracted text
-        request = AnalysisRequest(
+        data = await request.json()
+        pitch_text = data.get('pitch', '')
+        file = data.get('file')
+        if file:
+            pitch_text += await extract_text_from_pdf(file)
+        
+        return await process_analysis_request(
             pitch=pitch_text,
-            callback_url=callback_url
+            background_tasks=background_tasks,
+            callback_url=data.get('callback_url'),
+            file=file
         )
-        
-        return await evaluate_pitch(request, background_tasks)
-        
-    except HTTPException:
-        raise
     except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"An error occurred while processing the file: {str(e)}"
-        )
+        raise HTTPException(status_code=400, detail=f"Invalid payload: {str(e)}")
 
 async def run_analysis(analysis_id: str, pitch: str, file: Optional[UploadFile] = None):
     """
@@ -244,7 +218,7 @@ async def run_analysis(analysis_id: str, pitch: str, file: Optional[UploadFile] 
         )
         
         # Store initial status
-        store_analysis_result(
+        await store_analysis_result(
             analysis_id=analysis_id,
             status="processing",
             message="Starting analysis..."
@@ -294,7 +268,7 @@ async def run_analysis(analysis_id: str, pitch: str, file: Optional[UploadFile] 
             )
         
         # Store the successful result
-        store_analysis_result(
+        await store_analysis_result(
             analysis_id=analysis_id,
             status="completed",
             result=result,
@@ -341,7 +315,7 @@ async def run_analysis(analysis_id: str, pitch: str, file: Optional[UploadFile] 
         )
         
         # Store the error using our helper function
-        store_analysis_result(
+        await store_analysis_result(
             analysis_id=analysis_id,
             status="error",
             message=error_msg
@@ -401,8 +375,25 @@ async def evaluate_pitch(
             }
         )
         
+        
+        # Check if analysis_id already exists
+        existing_result = await mongodb_service.get_analysis_results(analysis_id, "system")
+        if existing_result:
+            logger.log_event(
+                "analysis_already_exists",
+                f"Analysis with ID {analysis_id} already exists",
+                {"result": existing_result}
+            )
+            return AnalysisResponse(
+                id=analysis_id,
+                status=existing_result["status"],
+                createdAt=existing_result["created_at"],
+                summary=existing_result["summary"],
+                error=existing_result["error"]
+            )
+
         # Store initial status using our helper function
-        store_analysis_result(
+        await store_analysis_result(
             analysis_id=analysis_id,
             status="processing",
             message="Analysis request received and queued for processing"
@@ -449,7 +440,7 @@ async def evaluate_pitch(
         )
         
         # Store the error state
-        store_analysis_result(
+        await store_analysis_result(
             analysis_id=analysis_id,
             status="error",
             message=error_msg
@@ -476,51 +467,110 @@ async def get_analysis_status(analysis_id: str, request: Request):
     logger = AgentLogger("analysis_api", request_id)
     
     try:
-        # Log the status check
+        # Log the status check with timestamp
         logger.log_event(
             "status_check",
             f"Checking status of analysis: {analysis_id}",
-            {"analysis_id": analysis_id}
+            {"analysis_id": analysis_id, "timestamp": datetime.utcnow().isoformat()}
         )
         
-        # Get the analysis result
-        result = analysis_results.get(analysis_id)
-        
-        if not result:
+        # Try to get the analysis result from MongoDB
+        try:
+            # Get the latest result directly from MongoDB
+            result = await mongodb_service.get_analysis_results(analysis_id, "system")
+            
+            if not result:
+                logger.log_event(
+                    "status_not_found",
+                    f"Analysis not found: {analysis_id}",
+                    {"analysis_id": analysis_id},
+                    level="warning"
+                )
+                raise HTTPException(
+                    status_code=404,
+                    detail=f"Analysis with ID {analysis_id} not found"
+                )
+            
+            # Log the raw result for debugging
             logger.log_event(
-                "status_not_found",
-                f"Analysis ID not found: {analysis_id}",
-                level="warning"
+                "status_raw_result",
+                f"Raw result from MongoDB for {analysis_id}",
+                {
+                    "analysis_id": analysis_id,
+                    "status": result.get("status"),
+                    "has_result": "result" in result,
+                    "keys": list(result.keys()) if isinstance(result, dict) else []
+                }
+            )
+                
+            # Log the status being returned
+            logger.log_event(
+                "status_returned",
+                f"Returning status for analysis: {analysis_id}",
+                {
+                    "analysis_id": analysis_id, 
+                    "status": result.get("status"),
+                    "has_result": "result" in result,
+                    "timestamp": datetime.utcnow().isoformat()
+                }
+            )
+            
+            # Determine the status - check both the status field and the presence of results
+            status_value = str(result.get("status", "unknown")).lower()
+            
+            # If we have a result in the database, consider the analysis complete
+            if "result" in result and result["result"]:
+                status_value = "completed"
+            
+            # Ensure the result is a dictionary and properly formatted
+            result_data = {}
+            if "result" in result and result["result"]:
+                if isinstance(result["result"], dict):
+                    result_data = result["result"]
+                else:
+                    result_data = {"data": result["result"]}
+            
+            # Get the most relevant message
+            message = str(result.get("message", ""))
+            if not message and status_value == "completed":
+                message = "Analysis completed successfully"
+            elif not message:
+                message = f"Analysis is {status_value}"
+                
+            # Prepare the response
+            response_data = {
+                "analysisId": str(analysis_id),
+                "status": status_value,
+                "result": result_data,
+                "message": message
+            }
+            
+            # Log the final response being returned
+            logger.log_event(
+                "response_prepared",
+                f"Prepared response for analysis: {analysis_id}",
+                {
+                    "analysis_id": analysis_id,
+                    "status": status_value,
+                    "has_result": bool(result_data),
+                    "message_length": len(response_data["message"])
+                }
+            )
+            
+            # Return the response data
+            return response_data
+            
+        except Exception as e:
+            logger.log_event(
+                "status_error",
+                f"Error fetching analysis status: {str(e)}",
+                {"analysis_id": analysis_id, "error": str(e)},
+                level="error"
             )
             raise HTTPException(
-                status_code=404,
-                detail=f"Analysis with ID {analysis_id} not found"
+                status_code=500,
+                detail=f"Error fetching analysis status: {str(e)}"
             )
-        
-        # Log the status being returned
-        logger.log_event(
-            "status_returned",
-            f"Returning status for analysis: {analysis_id} - {result.get('status')}",
-            {"status": result.get("status")}
-        )
-        
-        # Create a clean response dictionary
-        response = {
-            "analysisId": analysis_id,
-            "status": result.get("status", "unknown"),
-            "result": result.get("result"),
-            "message": str(result.get("message", ""))
-        }
-        
-        # Handle error status
-        if response["status"] == "error":
-            if not response["message"] and response["result"]:
-                response["message"] = str(response["result"])
-            elif not response["message"]:
-                response["message"] = "An unknown error occurred"
-        
-        # Clean and format the result
-        if isinstance(response.get("result"), dict):
             # Ensure all values are JSON serializable
             clean_result = {}
             for key, value in response["result"].items():

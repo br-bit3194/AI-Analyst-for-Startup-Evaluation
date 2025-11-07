@@ -99,6 +99,10 @@ async def startup_event():
         # Initialize database connection
         await db_client.connect_db()
         
+        # Initialize MongoDBService
+        from app.services.mongodb_service import mongodb_service
+        await mongodb_service.initialize()
+        
         # Clean up any old metadata on startup
         await metadata_service.cleanup_old_metadata(max_age_hours=24)
         

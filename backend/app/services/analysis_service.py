@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 class AnalysisStorage:
     def __init__(self):
         self.db = get_database()
-        self.collection = self.db.analysis_history
+        self.collection = self.db.analysis_results
     
     async def create_analysis(self, analysis_data: dict) -> str:
         """Create a new analysis record in the database."""
