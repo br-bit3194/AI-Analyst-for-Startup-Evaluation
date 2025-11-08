@@ -478,7 +478,7 @@ export const AnalysisResult: React.FC<AnalysisResultProps> = ({ result }) => {
         {unit_economics && (
           <div className="border rounded-lg p-4 bg-white shadow-sm">
             <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-              <BarChart className="h-5 w-5 mr-2 text-indigo-600" />
+              <BarChart className="h-5 w-5 mr-2 text-gray-900" />
               Unit Economics
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -907,11 +907,11 @@ export const AnalysisResult: React.FC<AnalysisResultProps> = ({ result }) => {
       {agents.RiskAnalyst?.data?.risk_analysis && (
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center">
+            <CardTitle className="flex items-center text-gray-900">
               <AlertCircle className="h-5 w-5 mr-2 text-red-600" />
               Risk Analysis
             </CardTitle>
-            <CardDescription>
+            <CardDescription className="text-gray-700">
               {agents.RiskAnalyst?.data?.risk_analysis?.overall_risk?.explanation || 'No risk analysis available'}
             </CardDescription>
           </CardHeader>
@@ -925,7 +925,7 @@ export const AnalysisResult: React.FC<AnalysisResultProps> = ({ result }) => {
                   {agents.RiskAnalyst?.data?.risk_analysis?.key_risks_summary || 'No risk summary available'}
                 </p>
                 <div className="mt-2">
-                  <div className="flex justify-between text-xs text-red-600 mb-1">
+                  <div className="flex justify-between text-xs text-red-00 mb-1">
                     <span>Confidence</span>
                     <span>{
                       agents.RiskAnalyst?.data?.risk_analysis?.overall_risk?.confidence !== undefined
@@ -1549,11 +1549,11 @@ export const AnalysisResult: React.FC<AnalysisResultProps> = ({ result }) => {
       {agents.TeamEvaluator?.data?.team_analysis && (
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center">
+            <CardTitle className="flex items-center text-gray-900">
               <Users className="h-5 w-5 mr-2 text-purple-600" />
               Team Evaluation
             </CardTitle>
-            <CardDescription>
+            <CardDescription className="text-gray-700">
               Assessment of the founding team and key personnel
             </CardDescription>
           </CardHeader>
@@ -1764,11 +1764,11 @@ export const AnalysisResult: React.FC<AnalysisResultProps> = ({ result }) => {
       {agents.CompetitiveAnalyst?.data?.competitive_landscape && (
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center">
-              <BarChart className="h-5 w-5 mr-2 text-indigo-600" />
+            <CardTitle className="flex items-center text-gray-900">
+              <BarChart className="h-5 w-5 mr-2 text-gray-900" />
               Competitive Analysis
             </CardTitle>
-            <CardDescription>
+            <CardDescription className="text-gray-700">
               Analysis of the competitive landscape and market positioning
             </CardDescription>
           </CardHeader>

@@ -130,7 +130,8 @@ class MongoDBService:
                 "created_at": result_data.get("created_at", existing_doc["created_at"] if existing_doc else current_time),
                 "updated_at": current_time,
                 "message": result_data.get("message", existing_doc.get("message", "") if existing_doc else ""),
-                "timestamp": result_data.get("timestamp", current_time.isoformat())
+                "timestamp": result_data.get("timestamp", current_time.isoformat()),
+                "website_url": result_data.get("website_url", existing_doc.get("website_url", "") if existing_doc else "")
             }
             
             # Add the result if it exists

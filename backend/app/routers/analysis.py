@@ -35,7 +35,7 @@ from app.services.mongodb_service import MongoDBService
 # Initialize MongoDB service for analysis results
 mongodb_service = MongoDBService("analysis_results")
 
-async def store_analysis_result(analysis_id: str, status: str, result: Any = None, message: str = None, user_id: str = "system"):
+async def store_analysis_result(analysis_id: str, status: str, result: Any = None, message: str = None, user_id: str = "system", website_url: Optional[str] = None):
     """Helper function to safely store analysis results"""
     print(f"[DEBUG] Storing analysis result for ID: {analysis_id}, status: {status}")
     
@@ -43,7 +43,8 @@ async def store_analysis_result(analysis_id: str, status: str, result: Any = Non
     result_dict = {}
     if result is not None:
         try:
-            json.dumps(result)  # Test serialization
+            json.dumps(result)
+            result['analysis_id'] = analysis_id  # Test serialization
             result_dict["result"] = result
         except (TypeError, OverflowError) as e:
             print(f"[WARNING] Result not JSON serializable, converting to string: {str(e)}")
@@ -52,6 +53,7 @@ async def store_analysis_result(analysis_id: str, status: str, result: Any = Non
     # Prepare the document with proper structure
     document = {
         "analysis_id": analysis_id,
+        "website_url": website_url,
         "user_id": user_id,
         "status": status,
         "message": message or "",
@@ -104,7 +106,8 @@ async def store_analysis_result(analysis_id: str, status: str, result: Any = Non
 class AnalysisRequest(BaseModel):
     pitch: str
     callback_url: Optional[str] = None
-    file: Optional[Any] = None  # Will hold the UploadFile object  # For webhook notifications
+    file: Optional[Any] = None
+    website_url: Optional[str] = None  # Will hold the UploadFile object  # For webhook notifications
 
 class AnalysisResponse(BaseModel):
     analysisId: str  # Changed to match frontend expectation
@@ -144,7 +147,8 @@ async def process_analysis_request(
     pitch: str,
     background_tasks: BackgroundTasks,
     callback_url: Optional[str] = None,
-    file: Optional[UploadFile] = None
+    file: Optional[UploadFile] = None,
+    website_url: Optional[str] = None
 ):
     """Process analysis request with the given pitch text or file."""
     # Create an AnalysisRequest with the extracted text
@@ -156,6 +160,9 @@ async def process_analysis_request(
     # If file is provided, pass it along with the request
     if file:
         request.file = file
+    
+    if website_url:
+        request.website_url = website_url
     
     return await evaluate_pitch(request, background_tasks)
 
@@ -180,6 +187,7 @@ async def start_analysis(
     try:
         data = await request.json()
         pitch_text = data.get('pitch', '')
+        website_url = data.get('website_url', '')
         file = data.get('file')
         if file:
             pitch_text += await extract_text_from_pdf(file)
@@ -188,12 +196,13 @@ async def start_analysis(
             pitch=pitch_text,
             background_tasks=background_tasks,
             callback_url=data.get('callback_url'),
-            file=file
+            file=file,
+            website_url=website_url
         )
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Invalid payload: {str(e)}")
 
-async def run_analysis(analysis_id: str, pitch: str, file: Optional[UploadFile] = None):
+async def run_analysis(analysis_id: str, pitch: str, file: Optional[UploadFile] = None, website_url: Optional[str] = None):
     """
     Background task to run the analysis with comprehensive logging.
     
@@ -221,7 +230,8 @@ async def run_analysis(analysis_id: str, pitch: str, file: Optional[UploadFile] 
         await store_analysis_result(
             analysis_id=analysis_id,
             status="processing",
-            message="Starting analysis..."
+            message="Starting analysis...",
+            website_url=website_url
         )
         
         # Run the committee analysis with progress updates
@@ -231,7 +241,8 @@ async def run_analysis(analysis_id: str, pitch: str, file: Optional[UploadFile] 
         # Prepare input data for analysis
         input_data = {
             'pitch': pitch,
-            'file': file  # Pass the file object directly to the committee
+            'file': file,  # Pass the file object directly to the committee
+            'website_url': website_url  # Include website URL in the analysis data
         }
         
         # Run analysis with progress tracking
@@ -396,7 +407,8 @@ async def evaluate_pitch(
         await store_analysis_result(
             analysis_id=analysis_id,
             status="processing",
-            message="Analysis request received and queued for processing"
+            message="Analysis request received and queued for processing",
+            website_url=request.website_url
         )
         
         # Store callback URL if provided
@@ -413,7 +425,8 @@ async def evaluate_pitch(
             run_analysis,
             analysis_id=analysis_id,
             pitch=request.pitch,
-            file=request.file
+            file=request.file,
+            website_url=request.website_url
         )
         
         logger.log_event(
@@ -571,46 +584,7 @@ async def get_analysis_status(analysis_id: str, request: Request):
                 status_code=500,
                 detail=f"Error fetching analysis status: {str(e)}"
             )
-            # Ensure all values are JSON serializable
-            clean_result = {}
-            for key, value in response["result"].items():
-                try:
-                    # Convert any non-serializable objects to strings
-                    json.dumps({key: value})  # Test serialization
-                    clean_result[key] = value
-                except (TypeError, OverflowError):
-                    clean_result[key] = str(value)
-            response["result"] = clean_result
             
-            # Format the summary if it exists
-            if "summary" in response["result"]:
-                summary = response["result"]["summary"]
-                if isinstance(summary, dict):
-                    response["result"]["summary"] = {
-                        'keyInsights': summary.get('key_insights', summary.get('keyInsights', [])),
-                        'strengths': summary.get('strengths', []),
-                        'concerns': summary.get('concerns', []),
-                        'recommendations': summary.get('recommendations', [])
-                    }
-        
-        # Ensure the final response is JSON serializable
-        try:
-            json.dumps(response)
-            return response
-        except (TypeError, OverflowError) as e:
-            logger.log_event(
-                "serialization_error",
-                f"Failed to serialize response: {str(e)}",
-                {"error_type": type(e).__name__},
-                level="error"
-            )
-            # Return a minimal valid response if serialization fails
-            return {
-                "analysisId": analysis_id,
-                "status": "error",
-                "message": "Failed to format analysis results"
-            }
-        
     except HTTPException as he:
         # Re-raise HTTP exceptions
         raise he

@@ -61,12 +61,12 @@ export const MarketAnalysis: React.FC<MarketAnalysisProps> = ({ marketExpert }) 
   return (
     <Card key="market-analysis">
       <CardHeader>
-        <CardTitle className="flex items-center">
+        <CardTitle className="flex items-center text-gray-900">
           <BarChart className="h-5 w-5 mr-2 text-blue-600" />
           Market Analysis
         </CardTitle>
         {marketAnalysis.summary && (
-          <CardDescription>{marketAnalysis.summary}</CardDescription>
+          <CardDescription className="text-gray-700">{marketAnalysis.summary}</CardDescription>
         )}
       </CardHeader>
       <CardContent className="space-y-6">
